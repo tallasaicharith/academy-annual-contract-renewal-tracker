@@ -1,137 +1,103 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  PlusCircle,
+  PlusSquare,
   BarChart3,
-  LogOut,
-  X,
-  User,
   Settings,
   HelpCircle,
+  Menu,
+  X
 } from 'lucide-react'
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/contracts/new', label: 'New Contract Entry', icon: PlusCircle },
+  { path: '/contracts/new', label: 'New Contract Entry', icon: PlusSquare },
   { path: '/reports', label: 'Analytics', icon: BarChart3 },
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
 function Sidebar({ isOpen, onClose }) {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
-
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile Backdrop Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-on-surface/50 backdrop-blur-xs z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 glass-sidebar z-50 flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-[280px] bg-[#1a1c1e] text-white z-50 flex flex-col transition-transform duration-300 ease-in-out border-r border-outline/10 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:relative lg:translate-x-0 lg:z-0`}
       >
-        {/* Logo */}
-        <div className="p-6 border-b border-white/[0.06]">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <img
-                src="/oxygen-logo-brand.png"
-                alt="Oxygen Sports Logo"
-                className="h-12 object-contain"
-              />
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1.5 pl-0.5">
-                Contract Renewal Tracker
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
+        {/* Sidebar Header Brand Area */}
+        <div className="h-16 px-6 border-b border-outline/10 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-sm font-extrabold font-headline uppercase tracking-wider text-white">
+              Oxygen Sports
+            </span>
+            <span className="text-[9px] font-mono tracking-widest font-bold text-outline uppercase">
+              Contract Tracker
+            </span>
           </div>
+
+          {/* Close button for mobile screen */}
+          <button
+            onClick={onClose}
+            className="lg:hidden p-1 rounded-sm hover:bg-white/5 transition-colors cursor-pointer text-outline hover:text-white"
+            aria-label="Close menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-5 flex flex-col justify-between">
+        {/* Sidebar Navigation */}
+        <nav className="flex-1 px-4 py-6 flex flex-col justify-between">
+          {/* Main Links */}
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-gray-500/80 uppercase tracking-[0.15em] px-3 mb-4">
-              Menu
-            </p>
+            <span className="text-[9px] font-bold text-outline uppercase font-mono tracking-widest px-3 block mb-3">
+              Application Scope
+            </span>
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 group border ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-[4px] text-xs font-semibold tracking-wide transition-all duration-150 group border ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#ab3600] to-[#c44000] text-white border-transparent shadow-lg shadow-[#ab3600]/20'
-                      : 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-200 border-transparent'
+                      ? 'bg-[#ab3600] text-white border-transparent shadow-[0px_4px_12px_rgba(0,0,0,0.05)]'
+                      : 'text-outline hover:bg-white/5 hover:text-white border-transparent'
                   }`
                 }
               >
-                <item.icon className="w-[18px] h-[18px] transition-transform group-hover:scale-110" />
+                <item.icon className="w-4 h-4 transition-transform group-hover:scale-105" />
                 {item.label}
               </NavLink>
             ))}
           </div>
 
-          {/* Help Center Navigation Item */}
-          <div className="mt-auto pt-5 border-t border-white/[0.06]">
+          {/* Help Center pinned to bottom */}
+          <div className="border-t border-outline/10 pt-4">
             <NavLink
               to="/help"
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 group border ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-[4px] text-xs font-semibold tracking-wide transition-all duration-150 group border ${
                   isActive
-                    ? 'bg-gradient-to-r from-[#ab3600] to-[#c44000] text-white border-transparent shadow-lg shadow-[#ab3600]/20'
-                    : 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-200 border-transparent'
+                    ? 'bg-[#ab3600] text-white border-transparent'
+                    : 'text-outline hover:bg-white/5 hover:text-white border-transparent'
                 }`
               }
             >
-              <HelpCircle className="w-[18px] h-[18px]" />
+              <HelpCircle className="w-4 h-4" />
               Help Center
             </NavLink>
           </div>
         </nav>
-
-        {/* User section */}
-        <div className="p-5 border-t border-white/[0.06] bg-black/[0.15]">
-          <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0C4F44] to-[#127464] flex items-center justify-center shadow-md ring-2 ring-white/[0.08]">
-              <User className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-white truncate">
-                {user?.username || 'User'}
-              </p>
-              <p className="text-[11px] text-gray-500 truncate">
-                {user?.email || 'user@oxygensports.com'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-400 hover:bg-red-500/[0.08] hover:text-red-400 border border-transparent hover:border-red-500/15 transition-all duration-200"
-          >
-            <LogOut className="w-[18px] h-[18px]" />
-            Logout
-          </button>
-        </div>
       </aside>
     </>
   )

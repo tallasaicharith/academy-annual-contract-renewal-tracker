@@ -1,51 +1,49 @@
-function StatusBadge({ status }) {
+function StatusBadge({ status, onClick }) {
   const statusConfig = {
     'Active': {
-      bg: 'bg-[#E6F4EA]',
-      text: 'text-[#137333]',
-      border: 'border-transparent',
-      dot: 'bg-[#137333]',
-    },
-    'Expiring Soon': {
-      bg: 'bg-[#FEF7E0]',
-      text: 'text-[#B06000]',
-      border: 'border-transparent',
-      dot: 'bg-[#B06000]',
-    },
-    'Expired': {
-      bg: 'bg-[#FCE8E6]',
-      text: 'text-[#C5221F]',
-      border: 'border-transparent',
-      dot: 'bg-[#C5221F]',
-      label: 'OVERDUE',
-    },
-    'Overdue': {
-      bg: 'bg-[#FCE8E6]',
-      text: 'text-[#C5221F]',
-      border: 'border-transparent',
-      dot: 'bg-[#C5221F]',
-      label: 'OVERDUE',
+      bg: 'bg-[#e6f5f4] text-[#00666d]',
+      dot: 'bg-[#00666d]'
     },
     'Renewed': {
-      bg: 'bg-blue-50',
-      text: 'text-blue-700',
-      border: 'border-transparent',
-      dot: 'bg-blue-600',
+      bg: 'bg-blue-50 text-blue-700',
+      dot: 'bg-blue-600'
     },
-    'Cancelled': {
-      bg: 'bg-gray-100',
-      text: 'text-gray-700',
-      border: 'border-transparent',
-      dot: 'bg-gray-500',
+    'Expiring Soon': {
+      bg: 'bg-[#fef7e0] text-[#ab3600]',
+      dot: 'bg-[#ab3600]'
     },
+    'Overdue': {
+      bg: 'bg-[#ffdad6] text-[#ba1a1a]',
+      dot: 'bg-[#ba1a1a]'
+    },
+    'Expired': {
+      bg: 'bg-[#ffdad6] text-[#ba1a1a]',
+      dot: 'bg-[#ba1a1a]',
+      label: 'OVERDUE'
+    },
+    'In Review': {
+      bg: 'bg-[#fef3c7] text-[#b45309]',
+      dot: 'bg-[#b45309]'
+    },
+    'Draft': {
+      bg: 'bg-[#eeeef0] text-[#414754]',
+      dot: 'bg-[#717786]'
+    }
   }
 
-  const config = statusConfig[status] || statusConfig['Active']
+  const config = statusConfig[status] || {
+    bg: 'bg-[#eeeef0] text-[#414754]',
+    dot: 'bg-[#717786]'
+  }
+  
   const displayLabel = config.label || status
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${config.bg} ${config.text} ${config.border}`}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm status-label ${config.bg} ${
+        onClick ? 'cursor-pointer hover:opacity-90' : ''
+      }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`}></span>
       {displayLabel}
