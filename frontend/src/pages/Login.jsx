@@ -79,9 +79,9 @@ function Login() {
         {/* Logo */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
-            src="/oxygen-logo.svg"
+            src="/oxygen-logo-brand.png"
             alt="Oxygen Sports Logo"
-            className="h-12 object-contain mb-4"
+            className="h-16 object-contain mb-4"
           />
         </div>
 
@@ -134,14 +134,14 @@ function Login() {
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6580]" />
+                <User className="absolute left-3-5-custom top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6580]" />
                 <input
                   type="text"
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
                   placeholder="Enter username"
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl bg-[#0A192F] border text-white text-xs placeholder:text-[#5A6580] focus:outline-none focus:border-[#127464] focus:ring-2 focus:ring-[#127464]/20 transition-all ${
+                  className={`w-full pl-10-custom pr-4 py-3 rounded-xl bg-[#0A192F] border text-white text-xs placeholder:text-[#5A6580] focus:outline-none focus:border-[#127464] focus:ring-2 focus:ring-[#127464]/20 transition-all ${
                     errors.username ? 'border-red-500/50' : 'border-[#1E3A5F]/60'
                   }`}
                 />
@@ -158,14 +158,14 @@ function Login() {
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6580]" />
+                  <Mail className="absolute left-3-5-custom top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6580]" />
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="Enter email address"
-                    className={`w-full pl-10 pr-4 py-3 rounded-xl bg-[#0A192F] border text-white text-xs placeholder:text-[#5A6580] focus:outline-none focus:border-[#127464] focus:ring-2 focus:ring-[#127464]/20 transition-all ${
+                    className={`w-full pl-10-custom pr-4 py-3 rounded-xl bg-[#0A192F] border text-white text-xs placeholder:text-[#5A6580] focus:outline-none focus:border-[#127464] focus:ring-2 focus:ring-[#127464]/20 transition-all ${
                       errors.email ? 'border-red-500/50' : 'border-[#1E3A5F]/60'
                     }`}
                   />
@@ -182,14 +182,14 @@ function Login() {
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6580]" />
+                <Lock className="absolute left-3-5-custom top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6580]" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Enter password"
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl bg-[#0A192F] border text-white text-xs placeholder:text-[#5A6580] focus:outline-none focus:border-[#127464] focus:ring-2 focus:ring-[#127464]/20 transition-all ${
+                  className={`w-full pl-10-custom pr-12-custom py-3 rounded-xl bg-[#0A192F] border text-white text-xs placeholder:text-[#5A6580] focus:outline-none focus:border-[#127464] focus:ring-2 focus:ring-[#127464]/20 transition-all ${
                     errors.password ? 'border-red-500/50' : 'border-[#1E3A5F]/60'
                   }`}
                 />

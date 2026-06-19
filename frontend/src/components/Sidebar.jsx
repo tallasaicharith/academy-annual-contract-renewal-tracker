@@ -48,7 +48,7 @@ function Sidebar({ isOpen, onClose }) {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <img
-                src="/oxygen-logo.svg"
+                src="/oxygen-logo-brand.png"
                 alt="Oxygen Sports Logo"
                 className="h-12 object-contain"
               />

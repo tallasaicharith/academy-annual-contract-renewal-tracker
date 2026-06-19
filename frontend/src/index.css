@@ -291,3 +291,16 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     border: 1px solid #d1d5db;
   }
 }
+
+/* ── Custom Login Input Padding & Icon Position Overlap Fix ── */
+.pl-10-custom {
+  padding-left: 2.75rem !important;
+}
+
+.pr-12-custom {
+  padding-right: 3rem !important;
+}
+
+.left-3-5-custom {
+  left: 0.875rem !important;
+}
