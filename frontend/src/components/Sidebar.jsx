@@ -39,7 +39,7 @@ function Sidebar({ isOpen, onClose }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-gradient-to-b from-[#1A1C1E] to-[#111315] border-r border-white/[0.06] z-50 flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 glass-sidebar z-50 flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:relative lg:translate-x-0 lg:z-0`}
       >
