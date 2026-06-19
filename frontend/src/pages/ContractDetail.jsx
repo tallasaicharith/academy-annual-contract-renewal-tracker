@@ -27,6 +27,19 @@ import {
 
 const ALL_STATUSES = ['Active', 'Expiring Soon', 'Expired', 'Renewed', 'Cancelled']
 
+const getManagerAvatar = (name) => {
+  if (name?.toLowerCase().includes('rivers')) {
+    return 'https://lh3.googleusercontent.com/aida-public/AB6AXuCCXn0vh6P45GaBWKTrxruADvZ_l5fLskKfmyvmnNPaHGW7_J2Syjv5NmAscIJ_4Yms6Tdi5RMDs2ae3YB4zEv1-NUp5ExAYtEnVkKSyqgBzfbXfLAZtTwaC7_QWyyHhZLlZhk3gl4T2ppT6Cyu9sSXT___UAxwMMNRRg0ohVOkAeydRsF6s8totf4TsYwHt2xCW0dt5-nLV3JnjpvSy7r4jtRy2bXGTRJdl9cPPxGmvdjKt777-O8j40LX4a-nR0_6PNuGY8PchEo';
+  }
+  if (name?.toLowerCase().includes('jenkins')) {
+    return 'https://lh3.googleusercontent.com/aida-public/AB6AXuB53hHfC88RiOQX_xCfrCGJLiXUu5uOTgQzkrHj6qVrUoYPNomq1w1Wte5xePlKObeS0JdnYng8_f7Q99b416bYkgaAr2tUHKA6wQv0Qg9eMOVMF5Cu_zkyTGpjTUEuAODPAxAUwllxd1hxXQ5GzCek1tppxFy3nUxEThg1BmBAoAGptpkTd77fZnxvtHalRHj7mE53qh8QGb5FXuWk3ZYvXqQl-18qMe-GcTD_MQxSST-JlgPH67cUJkq55YpDh-Puas1sRqYn7-g';
+  }
+  if (name?.toLowerCase().includes('thorne')) {
+    return 'https://lh3.googleusercontent.com/aida-public/AB6AXuBa8AU9jUU3f8pHZmTzY1tk-T8s8nMQm-iXtrTEb9QFOKodeITUwsTVK97zpWYtsfavdvZUcq0nigYG3Uk_zKxaAyJmEekJ-uzdBpnXorddoLCqreVxPc71ptCwYZd3CgvYAAcY52nqbQzEgRk3H6hbkVLgCdRjq2gacF8mOb5ZCXm-DuF22gMJzRWu7s-IfQlFFJOFAO1hZJ3xqp_1DEMoNWlq2qt0b6Ixq_h6cXc1lVSzrLdZv0pd6ATjs4DYroWm3o1pieQg478';
+  }
+  return null;
+}
+
 function ContractDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -401,28 +414,38 @@ function ContractDetail() {
 
         {/* Relationship Manager */}
         <div className="glass-card p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between text-[#717786] mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Relationship Mgr</span>
-            <User className="w-4 h-4 text-[#0059BB]" />
+          <p className="text-gray-400 font-bold text-[10px] uppercase tracking-wider mb-3">Relationship Manager</p>
+          <div className="flex items-center space-x-3">
+            {getManagerAvatar(contract.relationshipManager) ? (
+              <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-blue-500/10">
+                <img className="w-full h-full object-cover" src={getManagerAvatar(contract.relationshipManager)} alt="avatar" />
+              </div>
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#0C4F44] to-[#127464] flex items-center justify-center text-white text-xs font-bold shadow-md">
+                {contract.relationshipManager?.slice(0, 2).toUpperCase() || 'RM'}
+              </div>
+            )}
+            <div>
+              <h4 className="font-bold text-sm text-gray-900 leading-none">{contract.relationshipManager}</h4>
+              <p className="text-[10px] text-gray-500 mt-1">Senior Key Accounts</p>
+            </div>
           </div>
-          <p className="text-sm font-bold text-[#1A1C1E] truncate">{contract.relationshipManager}</p>
-          <div className="grid grid-cols-2 gap-2 mt-3.5">
+          <div className="mt-3.5 space-y-2">
             <a
               href={`mailto:${contract.relationshipManager?.toLowerCase().replace(/\s+/g, '')}@oxygensports.com`}
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#F3F3F6] hover:bg-[#E4E7EC] border border-[rgba(193,198,215,0.6)] rounded-lg text-[9px] font-bold text-[#414754] hover:text-[#1A1C1E] transition-all uppercase tracking-wider"
+              className="w-full flex items-center justify-center py-2 px-3 border border-gray-200 hover:bg-gray-50 rounded-lg transition-all text-[11px] font-semibold text-gray-700"
             >
-              <Mail className="w-3 h-3" />
-              Email
+              <Mail className="w-3.5 h-3.5 text-blue-600 mr-2" />
+              Email {contract.relationshipManager?.split(' ')[0]}
             </a>
             <a
               href="tel:+1800555981"
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#F3F3F6] hover:bg-[#E4E7EC] border border-[rgba(193,198,215,0.6)] rounded-lg text-[9px] font-bold text-[#414754] hover:text-[#1A1C1E] transition-all uppercase tracking-wider"
+              className="w-full flex items-center justify-center py-2 px-3 border border-gray-200 hover:bg-gray-50 rounded-lg transition-all text-[11px] font-semibold text-gray-700"
             >
-              <PhoneCall className="w-3 h-3" />
-              Call Ext.
+              <PhoneCall className="w-3.5 h-3.5 text-blue-600 mr-2" />
+              Call Extension (x442)
             </a>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0059BB]/50" />
         </div>
       </div>
 

@@ -16,7 +16,8 @@ import {
   Download,
   Eye,
   User,
-  FileText
+  FileText,
+  Timer
 } from 'lucide-react'
 import {
   BarChart,
@@ -28,6 +29,19 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts'
+
+const getManagerAvatar = (name) => {
+  if (name?.toLowerCase().includes('rivers')) {
+    return 'https://lh3.googleusercontent.com/aida-public/AB6AXuCCXn0vh6P45GaBWKTrxruADvZ_l5fLskKfmyvmnNPaHGW7_J2Syjv5NmAscIJ_4Yms6Tdi5RMDs2ae3YB4zEv1-NUp5ExAYtEnVkKSyqgBzfbXfLAZtTwaC7_QWyyHhZLlZhk3gl4T2ppT6Cyu9sSXT___UAxwMMNRRg0ohVOkAeydRsF6s8totf4TsYwHt2xCW0dt5-nLV3JnjpvSy7r4jtRy2bXGTRJdl9cPPxGmvdjKt777-O8j40LX4a-nR0_6PNuGY8PchEo';
+  }
+  if (name?.toLowerCase().includes('jenkins')) {
+    return 'https://lh3.googleusercontent.com/aida-public/AB6AXuB53hHfC88RiOQX_xCfrCGJLiXUu5uOTgQzkrHj6qVrUoYPNomq1w1Wte5xePlKObeS0JdnYng8_f7Q99b416bYkgaAr2tUHKA6wQv0Qg9eMOVMF5Cu_zkyTGpjTUEuAODPAxAUwllxd1hxXQ5GzCek1tppxFy3nUxEThg1BmBAoAGptpkTd77fZnxvtHalRHj7mE53qh8QGb5FXuWk3ZYvXqQl-18qMe-GcTD_MQxSST-JlgPH67cUJkq55YpDh-Puas1sRqYn7-g';
+  }
+  if (name?.toLowerCase().includes('thorne')) {
+    return 'https://lh3.googleusercontent.com/aida-public/AB6AXuBa8AU9jUU3f8pHZmTzY1tk-T8s8nMQm-iXtrTEb9QFOKodeITUwsTVK97zpWYtsfavdvZUcq0nigYG3Uk_zKxaAyJmEekJ-uzdBpnXorddoLCqreVxPc71ptCwYZd3CgvYAAcY52nqbQzEgRk3H6hbkVLgCdRjq2gacF8mOb5ZCXm-DuF22gMJzRWu7s-IfQlFFJOFAO1hZJ3xqp_1DEMoNWlq2qt0b6Ixq_h6cXc1lVSzrLdZv0pd6ATjs4DYroWm3o1pieQg478';
+  }
+  return null;
+}
 
 function Dashboard() {
   const { user } = useAuth()
@@ -311,32 +325,37 @@ function Dashboard() {
       {/* 4 Metrics Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatsCard
-          icon={CheckCircle}
+          icon={FileText}
           label="Total Active Contracts"
           value={activeCount}
-          trendLabel="+2.4% from last month"
-          color="green"
+          trendValue="+4.2%"
+          trendDesc="vs last month"
+          trendType="success"
+          color="blue"
         />
         <StatsCard
-          icon={AlertTriangle}
+          icon={Timer}
           label="Expiring in 30 Days"
           value={summary?.urgentAlerts || 0}
-          trendLabel="! CRITICAL ATTENTION"
+          trendValue="Critical attention"
+          trendType="warning"
           color="orange"
         />
         <StatsCard
           icon={RefreshCw}
           label="Recent Renewals"
           value={renewedCount}
-          trendLabel="Renewed this quarter"
-          color="blue"
+          trendValue="On track"
+          trendDesc="This quarter"
+          trendType="info"
+          color="teal"
         />
         <StatsCard
           icon={TrendingUp}
           label="Avg Price Revision"
           value={`+${avgPriceRevision}%`}
-          trendLabel="Target: < 15%"
-          color="purple"
+          trendDesc="Weighted Avg across inventory"
+          color="blue"
         />
       </div>
 
@@ -512,9 +531,17 @@ function Dashboard() {
                         {/* Relationship Manager Avatar */}
                         <td className="py-4 px-4 text-sm text-gray-500 hidden lg:table-cell">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                              <User className="w-3 h-3 text-blue-600" />
-                            </div>
+                            {getManagerAvatar(contract.relationshipManager) ? (
+                              <div className="w-6 h-6 rounded-full overflow-hidden border border-white/60 shadow-sm">
+                                <img className="w-full h-full object-cover" src={getManagerAvatar(contract.relationshipManager)} alt="avatar" />
+                              </div>
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center border border-blue-200">
+                                <span className="text-[10px] font-bold text-blue-600">
+                                  {contract.relationshipManager?.slice(0, 2).toUpperCase() || 'RM'}
+                                </span>
+                              </div>
+                            )}
                             <span className="text-gray-700 text-xs font-semibold">
                               {contract.relationshipManager}
                             </span>
