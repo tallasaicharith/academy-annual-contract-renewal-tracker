@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" fill="none">
+  <!-- OXYGEN text - bold italic modern -->
+  <text x="18" y="34" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" font-style="italic" fill="white" letter-spacing="3">
+    OXYGEN
+  </text>
+
+  <!-- Green arrow/checkmark accent overlapping the X -->
+  <g transform="translate(73, 8)">
+    <path d="M4 18 L10 26 L24 6" stroke="#127464" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- SPORTS text - bold italic modern -->
+  <text x="18" y="58" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" font-style="italic" fill="white" letter-spacing="6">
+    SPORTS
+  </text>
+
+  <!-- Tagline -->
+  <text x="19" y="73" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="8.5" font-weight="500" font-style="italic" fill="#127464" letter-spacing="0.8">
+    Believe it, Achieve it!
+  </text>
+</svg>
