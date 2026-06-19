@@ -40,3 +40,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# PowerPoint presentation decks (Local only)
+docs/*.pptx
