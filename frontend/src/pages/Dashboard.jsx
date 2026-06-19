@@ -17,7 +17,8 @@ import {
   Eye,
   User,
   FileText,
-  Timer
+  Timer,
+  Pencil
 } from 'lucide-react'
 import {
   BarChart,
@@ -302,15 +303,15 @@ function Dashboard() {
         </div>
 
         {/* Sub-tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex items-center gap-1.5 bg-white/30 backdrop-blur-md p-1.5 rounded-xl border border-white/50 shadow-sm w-fit">
           {['Overview', 'History', 'Forecast'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 border-b-2 -mb-[2px] ${
+              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg cursor-pointer ${
                 activeTab === tab
-                  ? 'border-[#ab3600] text-gray-900'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
+                  ? 'bg-white text-gray-900 shadow-sm font-extrabold'
+                  : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               {tab}
@@ -557,14 +558,36 @@ function Dashboard() {
                         </td>
                         {/* Action buttons */}
                         <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                             <button
                               onClick={() => navigate(`/contracts/${contract.id || contract._id}`)}
-                              className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-all cursor-pointer"
+                              className="p-1.5 hover:bg-[#0059BB]/15 text-[#0059BB] rounded-lg transition-colors cursor-pointer"
                               title="View Details"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                            <button
+                              onClick={() => navigate(`/contracts/${contract.id || contract._id}/edit`)}
+                              className="p-1.5 hover:bg-gray-100 text-gray-650 rounded-lg transition-colors cursor-pointer"
+                              title="Edit"
+                            >
+                              <Pencil className="w-4 h-4 text-gray-500 hover:text-gray-800" />
+                            </button>
+                            {contract.status !== 'Renewed' && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api.patch(`/contracts/${contract.id || contract._id}/status`, { status: 'Renewed' })
+                                    fetchDashboardData()
+                                  } catch (e) {
+                                    console.error(e)
+                                  }
+                                }}
+                                className="px-3 py-1 bg-[#0059BB] hover:bg-[#004493] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm cursor-pointer"
+                              >
+                                Renew
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
