@@ -41,5 +41,6 @@ Thumbs.db
 *.sln
 *.sw?
 
-# PowerPoint presentation decks (Local only)
+# PowerPoint presentation decks & contract samples (Local only)
 docs/*.pptx
+docs/aurora_academy_contract.*
