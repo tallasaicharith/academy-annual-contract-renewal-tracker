@@ -81,6 +81,14 @@ const getStorageState = () => {
 
   const parsedUsers = JSON.parse(users);
 
+  let parsedContracts = contracts ? JSON.parse(contracts) : null;
+  // Migration check: force reset if old schema is detected (e.g. relationshipManagerId is missing)
+  if (parsedContracts && parsedContracts.some(c => c.relationshipManagerId === undefined)) {
+    parsedContracts = null;
+    localStorage.removeItem('oxygen_contracts');
+    contracts = null;
+  }
+
   if (!contracts) {
     // Adapt initial mock contracts to use user IDs
     const adapted = initialContracts.map((c, i) => {
@@ -186,13 +194,18 @@ const mapContractToUI = (c, usersList = []) => {
   let cats = []
   if (typeof c.equipmentCategories === 'string') {
     cats = c.equipmentCategories.split(',').map(s => s.trim())
+  } else if (typeof c.equipment_categories === 'string') {
+    cats = c.equipment_categories.split(',').map(s => s.trim())
   } else if (Array.isArray(c.equipmentCategories)) {
     cats = c.equipmentCategories
+  } else if (Array.isArray(c.equipment_categories)) {
+    cats = c.equipment_categories
   }
 
-  let managerName = c.relationshipManager
-  if (!managerName && usersList.length > 0 && c.relationshipManagerId) {
-    const m = usersList.find(u => u.id === c.relationshipManagerId)
+  const managerId = c.relationshipManagerId !== undefined ? c.relationshipManagerId : c.relationship_manager_id
+  let managerName = c.relationshipManager || c.relationship_manager
+  if (!managerName && usersList.length > 0 && managerId) {
+    const m = usersList.find(u => u.id === managerId)
     if (m) managerName = m.name
   }
 
@@ -200,23 +213,30 @@ const mapContractToUI = (c, usersList = []) => {
     ...c,
     id: dbIdToFrontendId(c.id),
     equipmentCategories: cats,
-    contractValue: parseFloat(c.contractValue || 0),
-    priceRevision: parseFloat(c.priceRevision || 0),
+    contractValue: parseFloat(c.contractValue !== undefined ? c.contractValue : (c.contract_value !== undefined ? c.contract_value : 0)),
+    priceRevision: parseFloat(c.priceRevision !== undefined ? c.priceRevision : (c.price_revision !== undefined ? c.price_revision : 0)),
     relationshipManager: managerName || 'Unassigned',
-    documentName: c.documentName || 'contract_attachment.pdf'
+    relationshipManagerId: managerId,
+    renewalDate: c.renewalDate || c.renewal_date,
+    contractStartDate: c.contractStartDate || c.contract_start_date,
+    documentName: c.documentName || c.document_name || 'contract_attachment.pdf'
   }
 }
 
 // Convert record from UI schema to database schema
 const mapContractToDB = (c) => {
-  const body = { ...c }
-  if (Array.isArray(body.equipmentCategories)) {
-    body.equipmentCategories = body.equipmentCategories.join(', ')
+  return {
+    academy_name: c.academyName,
+    equipment_categories: Array.isArray(c.equipmentCategories) ? c.equipmentCategories.join(', ') : c.equipmentCategories,
+    contract_value: c.contractValue !== undefined ? parseFloat(c.contractValue) : undefined,
+    price_revision: c.priceRevision !== undefined ? parseFloat(c.priceRevision) : undefined,
+    relationship_manager_id: c.relationshipManagerId !== undefined ? parseInt(c.relationshipManagerId, 10) : undefined,
+    renewal_date: c.renewalDate,
+    contract_start_date: c.contractStartDate,
+    status: c.status,
+    notes: c.notes,
+    document_name: c.documentName
   }
-  // Remove UI-only resolved properties
-  delete body.relationshipManager;
-  delete body.daysUntilRenewal;
-  return body
 }
 
 // ─── API Methods ────────────────────────────────────────────────────────────
@@ -511,7 +531,7 @@ export async function getDashboardSummary() {
       const statusMap = summary.statusCounts || {}
       const totalActive = (statusMap['Active'] || 0) + (statusMap['Renewed'] || 0)
       const expiringSoon = statusMap['Expiring Soon'] || 0
-      const overdue = statusMap['Expired'] || 0
+      const overdue = (statusMap['Expired'] || 0) + (statusMap['Overdue'] || 0)
 
       const contracts = await getContracts()
       const avgRevision = contracts.length > 0
@@ -522,13 +542,13 @@ export async function getDashboardSummary() {
         id: log.id,
         contractRenewalId: dbIdToFrontendId(log.contractRenewalId),
         action: log.action,
-        fieldChanged: log.fieldChanged,
-        oldValue: log.oldValue,
-        newValue: log.newValue,
-        changedBy: log.changedBy,
-        createdAt: log.createdAt,
+        fieldChanged: log.fieldChanged || log.field_changed,
+        oldValue: log.oldValue || log.old_value,
+        newValue: log.newValue || log.new_value,
+        changedBy: log.changedBy || log.changed_by,
+        createdAt: log.createdAt || log.created_at,
         description: log.description || `${log.action} performed on contract ${dbIdToFrontendId(log.contractRenewalId)}`,
-        academyName: log.academyName || 'Unknown Academy'
+        academyName: log.academyName || log.academy_name || 'Unknown Academy'
       }))
 
       return {
@@ -630,7 +650,7 @@ export async function getReportsSummary() {
           const m = parseInt(t.month.split('-')[1], 10)
           return m === (idx + 1)
         })
-        const baseVal = dbMonth ? dbMonth.totalValue : 450000 + i * 25000
+        const baseVal = dbMonth ? dbMonth.totalValue : 0
         const forecastVal = baseVal * 1.055
 
         trendsData.push({
@@ -851,4 +871,159 @@ export async function updateUser(id, userData) {
   state.users[idx] = updatedUser
   saveStorageState(state)
   return updatedUser
+}
+
+// ─── Settings and Profile API Wrappers ───────────────────────────────────────
+
+export async function getSettings() {
+  if (!isMockActive()) {
+    return await apiFetch('/api/settings')
+  }
+
+  const loggedUser = getLoggedInMockUser()
+  const sysConfig = JSON.parse(localStorage.getItem('oxygen_system_config') || '{}')
+  return {
+    renewalAlertThreshold: loggedUser?.renewalAlertThreshold || 30,
+    defaultRenewalAlertThreshold: parseInt(sysConfig.defaultRenewalAlertThreshold || '30', 10),
+    defaultPriceRevisionSuggestion: parseFloat(sysConfig.defaultPriceRevisionSuggestion || '5.0')
+  }
+}
+
+export async function updateProfile(profileData) {
+  if (!isMockActive()) {
+    const res = await apiFetch('/api/settings/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    })
+    return res.user
+  }
+
+  const state = getStorageState()
+  const loggedUser = getLoggedInMockUser()
+  const idx = state.users.findIndex(u => u.id === loggedUser.id)
+  if (idx === -1) throw new Error('User not found.')
+
+  const updatedUser = {
+    ...state.users[idx],
+    name: profileData.name || state.users[idx].name,
+    phone: profileData.phone || state.users[idx].phone,
+    avatarUrl: profileData.avatarUrl || state.users[idx].avatarUrl,
+    renewalAlertThreshold: profileData.renewalAlertThreshold !== undefined ? parseInt(profileData.renewalAlertThreshold, 10) : state.users[idx].renewalAlertThreshold
+  }
+
+  state.users[idx] = updatedUser
+  saveStorageState(state)
+  return updatedUser
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  if (!isMockActive()) {
+    return await apiFetch('/api/settings/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword })
+    })
+  }
+  return { message: 'Password changed successfully.' }
+}
+
+export async function updateSystemConfig(configData) {
+  if (!isMockActive()) {
+    return await apiFetch('/api/settings/system', {
+      method: 'PUT',
+      body: JSON.stringify(configData)
+    })
+  }
+
+  const sysConfig = JSON.parse(localStorage.getItem('oxygen_system_config') || '{}')
+  const updated = {
+    ...sysConfig,
+    ...configData
+  }
+  localStorage.setItem('oxygen_system_config', JSON.stringify(updated))
+  return { message: 'System configuration updated successfully.' }
+}
+
+// ─── Categories API Wrappers ──────────────────────────────────────────────────
+
+export async function getCategories() {
+  if (!isMockActive()) {
+    try {
+      const res = await apiFetch('/api/settings/categories')
+      return res.categories || []
+    } catch (err) {
+      console.warn('[API] Server unreachable, loading localStorage categories:', err.message)
+    }
+  }
+
+  let cats = localStorage.getItem('oxygen_categories')
+  if (!cats) {
+    const defaultCategories = [
+      { id: 1, name: 'Cricket' },
+      { id: 2, name: 'Football' },
+      { id: 3, name: 'Tennis' },
+      { id: 4, name: 'Badminton' },
+      { id: 5, name: 'Athletics' },
+      { id: 6, name: 'Swimming' },
+      { id: 7, name: 'Apparel' },
+      { id: 8, name: 'Footwear' },
+      { id: 9, name: 'Gym Gear' },
+      { id: 10, name: 'Team Kits' },
+      { id: 11, name: 'Nutrition' }
+    ]
+    localStorage.setItem('oxygen_categories', JSON.stringify(defaultCategories))
+    cats = JSON.stringify(defaultCategories)
+  }
+  return JSON.parse(cats)
+}
+
+export async function addCategory(name) {
+  if (!isMockActive()) {
+    const res = await apiFetch('/api/settings/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    })
+    return res.category
+  }
+
+  const list = await getCategories()
+  if (list.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) {
+    throw new Error('Category already exists.')
+  }
+  const newCat = {
+    id: list.length > 0 ? Math.max(...list.map(c => c.id)) + 1 : 1,
+    name: name.trim()
+  }
+  list.push(newCat)
+  localStorage.setItem('oxygen_categories', JSON.stringify(list))
+  return newCat
+}
+
+export async function updateCategory(id, name) {
+  if (!isMockActive()) {
+    const res = await apiFetch(`/api/settings/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name })
+    })
+    return res.category
+  }
+
+  const list = await getCategories()
+  const idx = list.findIndex(c => String(c.id) === String(id))
+  if (idx === -1) throw new Error('Category not found.')
+  list[idx].name = name.trim()
+  localStorage.setItem('oxygen_categories', JSON.stringify(list))
+  return list[idx]
+}
+
+export async function deleteCategory(id) {
+  if (!isMockActive()) {
+    await apiFetch(`/api/settings/categories/${id}`, {
+      method: 'DELETE'
+    })
+    return
+  }
+
+  const list = await getCategories()
+  const filtered = list.filter(c => String(c.id) !== String(id))
+  localStorage.setItem('oxygen_categories', JSON.stringify(filtered))
 }

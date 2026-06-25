@@ -24,22 +24,35 @@ import {
   CalendarCheck, 
   CheckCircle2
 } from 'lucide-react'
-import { getReportsSummary, getContracts } from '../api/api'
+import { getReportsSummary, getContracts, getUsers } from '../api/api'
+import { useAuth } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const CHART_COLORS = ['#0059bb', '#ab3600', '#00666d', '#008189', '#717786', '#ba1a1a']
 
 function ReportsAndAnalyticsDashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   
   // States
   const [loading, setLoading] = useState(true)
   const [reportsData, setReportsData] = useState(null)
   const [toastMessage, setToastMessage] = useState(null)
+  const [managers, setManagers] = useState([])
   
   // Filter States
   const [dateRange, setDateRange] = useState('Last 30 Days')
   const [managerFilter, setManagerFilter] = useState('All')
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      getUsers()
+        .then(res => {
+          setManagers(res.filter(u => u.role === 'employee' && u.isActive === 1))
+        })
+        .catch(err => console.error(err))
+    }
+  }, [user])
 
   useEffect(() => {
     fetchReports()
@@ -144,11 +157,11 @@ function ReportsAndAnalyticsDashboard() {
   }
 
   const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-US', {
+    return val.toLocaleString('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       maximumFractionDigits: 0
-    }).format(val)
+    })
   }
 
   if (loading || !reportsData) {
@@ -196,19 +209,21 @@ function ReportsAndAnalyticsDashboard() {
             </select>
           </div>
 
-          <div className="relative">
-            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
-            <select
-              value={managerFilter}
-              onChange={(e) => setManagerFilter(e.target.value)}
-              className="flat-input pl-10 pr-4 py-2 text-xs font-bold uppercase tracking-wider text-on-surface bg-white cursor-pointer"
-            >
-              <option value="All">All Managers</option>
-              <option value="Alex Rivers">Alex Rivers</option>
-              <option value="Sarah Jenkins">Sarah Jenkins</option>
-              <option value="Marcus Thorne">Marcus Thorne</option>
-            </select>
-          </div>
+          {user?.role === 'admin' && (
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
+              <select
+                value={managerFilter}
+                onChange={(e) => setManagerFilter(e.target.value)}
+                className="flat-input pl-10 pr-4 py-2 text-xs font-bold uppercase tracking-wider text-on-surface bg-white cursor-pointer"
+              >
+                <option value="All">All Managers</option>
+                {managers.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <button
             onClick={handleExportCSV}
@@ -329,8 +344,8 @@ function ReportsAndAnalyticsDashboard() {
               <LineChart data={reportsData.trendsData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-outline-variant)" />
                 <XAxis dataKey="month" tickLine={false} tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 10, fontFamily: 'var(--font-mono)' }} />
-                <YAxis tickLine={false} tickFormatter={(val) => `$${val/1000}K`} tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 10, fontFamily: 'var(--font-mono)' }} />
-                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} contentStyle={{ fontSize: '11px', borderRadius: '4px', fontFamily: 'var(--font-body)' }} />
+                <YAxis tickLine={false} tickFormatter={(val) => `₹${val/1000}K`} tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 10, fontFamily: 'var(--font-mono)' }} />
+                <Tooltip formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{ fontSize: '11px', borderRadius: '4px', fontFamily: 'var(--font-body)' }} />
                 
                 {/* Current actual line (Solid, ends at current month) */}
                 <Line 

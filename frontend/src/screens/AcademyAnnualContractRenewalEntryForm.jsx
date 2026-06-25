@@ -3,14 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { 
   ArrowLeft, 
   Calendar, 
-  DollarSign, 
+  IndianRupee, 
   Percent, 
   FileText, 
   Loader2,
   Trash2,
   Sparkles
 } from 'lucide-react'
-import { getContractById, createContract, updateContract, getUsers } from '../api/api'
+import { getContractById, createContract, updateContract, getUsers, getCategories, getSettings } from '../api/api'
 import { useAuth } from '../context/AuthContext'
 import Chip from '../components/Chip'
 
@@ -31,6 +31,8 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
   const [managers, setManagers] = useState([])
+  const [categories, setCategories] = useState([])
+  const [defaultSuggestion, setDefaultSuggestion] = useState('5.0')
   
   const [formData, setFormData] = useState({
     academyName: '',
@@ -45,7 +47,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
     documentName: ''
   })
 
-  // Load active managers for admin selector
+  // Load active managers, categories, and settings suggestions
   useEffect(() => {
     if (user?.role === 'admin') {
       getUsers()
@@ -54,6 +56,18 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
         })
         .catch(err => console.error('Failed to load managers:', err))
     }
+
+    getCategories()
+      .then(res => setCategories(res.map(c => c.name || c)))
+      .catch(err => console.error('Failed to load categories:', err))
+
+    getSettings()
+      .then(res => {
+        if (res.defaultPriceRevisionSuggestion !== undefined) {
+          setDefaultSuggestion(res.defaultPriceRevisionSuggestion)
+        }
+      })
+      .catch(err => console.error('Failed to load settings:', err))
   }, [user])
 
   // Lock to self if employee
@@ -133,11 +147,11 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
     const revisionPercent = isNaN(rev) ? 0 : rev
     const revisedVal = val * (1 + revisionPercent / 100)
     
-    const format = (v) => new Intl.NumberFormat('en-US', {
+    const format = (v) => v.toLocaleString('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       maximumFractionDigits: 0
-    }).format(v)
+    })
 
     return {
       original: format(val),
@@ -318,10 +332,10 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
           {/* Contract Value */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-outline uppercase font-mono tracking-wider">
-              Contract Value (USD, $)
+              Contract Value (INR, ₹)
             </label>
             <div className="relative">
-              <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
+              <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
               <input
                 type="number"
                 name="contractValue"
@@ -342,7 +356,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
           {/* Price Revision % */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-outline uppercase font-mono tracking-wider">
-              Price Revision Rate (%)
+              Price Revision Rate (%) {defaultSuggestion && <span className="text-outline/70 font-medium normal-case tracking-normal">(Suggested: {defaultSuggestion}%)</span>}
             </label>
             <div className="relative">
               <Percent className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
@@ -446,7 +460,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
             </label>
             <Chip
               selected={formData.equipmentCategories}
-              options={CATEGORY_OPTIONS}
+              options={categories}
               onChange={(updated) => setFormData(prev => ({ ...prev, equipmentCategories: updated }))}
             />
           </div>

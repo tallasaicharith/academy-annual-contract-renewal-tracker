@@ -119,7 +119,7 @@ export default function Login() {
         {/* Info footer */}
         <div className="mt-8 border-t border-outline/5 pt-6 text-center">
           <p className="text-[10px] text-outline leading-relaxed font-sans">
-            Use configured administrator credentials to access the secure tracking dashboard.
+            Sign in with your Oxygen Sports account to access the contract tracker.
           </p>
         </div>
       </div>

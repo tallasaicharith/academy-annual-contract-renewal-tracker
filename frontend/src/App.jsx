@@ -9,7 +9,8 @@ import AcademyAnnualContractRenewalEntryForm from './screens/AcademyAnnualContra
 import DetailAndHistoryView from './screens/DetailAndHistoryView'
 import ReportsAndAnalyticsDashboard from './screens/ReportsAndAnalyticsDashboard'
 import TeamManagement from './screens/TeamManagement'
-import { Settings as SettingsIcon, HelpCircle } from 'lucide-react'
+import Settings from './screens/Settings'
+import { HelpCircle } from 'lucide-react'
 
 // Guard to restrict employee access to admin-only screens
 function AdminRoute({ children }) {
@@ -21,25 +22,6 @@ function AdminRoute({ children }) {
 }
 
 // Placeholder components styled professionally matching design tokens
-function SettingsPlaceholder() {
-  return (
-    <div className="max-w-2xl mx-auto mt-16 animate-fadeIn">
-      <div className="flat-card p-10 text-center bg-white border border-outline-variant">
-        <div className="w-16 h-16 rounded-sm bg-primary/10 flex items-center justify-center mx-auto mb-6 border border-primary/20">
-          <SettingsIcon className="w-8 h-8 text-primary" />
-        </div>
-        <h2 className="text-xl font-bold text-on-surface mb-2 tracking-tight font-headline">System Settings</h2>
-        <p className="text-on-surface-variant text-sm leading-relaxed max-w-md mx-auto">
-          Configuration parameters, price revision multipliers, and automated SQLite alert engine settings will be configurable in this module.
-        </p>
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-          <span className="text-[10px] font-bold text-secondary font-mono uppercase tracking-widest">Under Development</span>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Help Center placeholder
 function HelpCenterPlaceholder() {
@@ -125,7 +107,7 @@ function App() {
             } 
           />
 
-          <Route path="settings" element={<SettingsPlaceholder />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="help" element={<HelpCenterPlaceholder />} />
         </Route>
         

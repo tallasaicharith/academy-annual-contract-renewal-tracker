@@ -17,11 +17,11 @@ function DataTable({
   const showManager = user?.role === 'admin'
 
   const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-US', {
+    return val.toLocaleString('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       maximumFractionDigits: 0
-    }).format(val)
+    })
   }
 
   const formatDate = (dateStr) => {

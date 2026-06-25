@@ -43,7 +43,7 @@ function Sidebar({ isOpen, onClose }) {
       <aside
         className={`fixed top-0 left-0 h-full w-[280px] bg-[#1a1c1e] text-white z-50 flex flex-col transition-transform duration-300 ease-in-out border-r border-outline/10 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:relative lg:translate-x-0 lg:z-0`}
+        } lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:z-0`}
       >
         {/* Sidebar Header Brand Area */}
         <div className="py-6 px-6 border-b border-outline/10 flex flex-col justify-center relative">
@@ -126,7 +126,9 @@ function Sidebar({ isOpen, onClose }) {
                   )}
                   <div className="truncate">
                     <p className="text-xs font-bold text-white truncate font-sans">{user?.name || user?.username || 'Staff'}</p>
-                    <p className="text-[10px] text-outline truncate font-mono uppercase tracking-wider">{user?.role || 'User'}</p>
+                    <p className="text-[10px] text-outline truncate font-mono uppercase tracking-wider">
+                      {user?.title || (user?.role === 'admin' ? 'Lead Administrator' : 'Relationship Manager')}
+                    </p>
                   </div>
                 </div>
                 <button

@@ -25,7 +25,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts'
-import { getContracts, getDashboardSummary, updateStatus, getUsers } from '../api/api'
+import { getContracts, getDashboardSummary, updateStatus, getUsers, getCategories } from '../api/api'
 import { useAuth } from '../context/AuthContext'
 import KPICard from '../components/KPICard'
 import DataTable from '../components/DataTable'
@@ -43,6 +43,7 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
   const [summary, setSummary] = useState(null)
   const [contracts, setContracts] = useState([])
   const [managers, setManagers] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
@@ -52,6 +53,12 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
   const [statusFilter, setStatusFilter] = useState('All')
   const [managerFilter, setManagerFilter] = useState('All')
   const [activeTab, setActiveTab] = useState('All') // 'All', 'Active', 'Completed', 'Archived'
+
+  useEffect(() => {
+    getCategories()
+      .then(res => setCategories(res.map(c => c.name || c)))
+      .catch(err => console.error(err))
+  }, [])
   
   // Dialog State
   const [dialogConfig, setDialogConfig] = useState({
@@ -156,7 +163,7 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
   }
 
   const handleExportCSV = () => {
-    const headers = ['Contract ID', 'Academy Name', 'Equipment Categories', 'Renewal Date', 'Contract Value ($)', 'Price Revision (%)', 'Relationship Manager', 'Status']
+    const headers = ['Contract ID', 'Academy Name', 'Equipment Categories', 'Renewal Date', 'Contract Value (INR, ₹)', 'Price Revision (%)', 'Relationship Manager', 'Status']
     const rows = contracts.map(c => [
       c.id,
       c.academyName,
@@ -302,7 +309,7 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
             className="flat-input px-3 py-2 text-xs font-bold uppercase tracking-wider text-on-surface bg-white cursor-pointer"
           >
             <option value="All">All Categories</option>
-            {CATEGORY_OPTIONS.map(c => (
+            {categories.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -384,8 +391,8 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
               <BarChart data={mockMonthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-outline-variant)" />
                 <XAxis dataKey="month" tickLine={false} tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 10, fontFamily: 'var(--font-mono)' }} />
-                <YAxis tickLine={false} tickFormatter={(val) => `$${val/1000}K`} tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 10, fontFamily: 'var(--font-mono)' }} />
-                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Projected Renewal']} contentStyle={{ fontSize: '11px', borderRadius: '4px', fontFamily: 'var(--font-body)' }} />
+                <YAxis tickLine={false} tickFormatter={(val) => `₹${val/1000}K`} tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 10, fontFamily: 'var(--font-mono)' }} />
+                <Tooltip formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Projected Renewal']} contentStyle={{ fontSize: '11px', borderRadius: '4px', fontFamily: 'var(--font-body)' }} />
                 <Bar dataKey="value" radius={[2, 2, 0, 0]}>
                   {mockMonthlyData.map((entry, index) => (
                     <Cell 

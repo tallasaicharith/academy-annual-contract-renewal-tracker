@@ -160,6 +160,8 @@ async function initDatabase() {
   _wrapper.exec(`DROP TABLE IF EXISTS audit_logs`);
   _wrapper.exec(`DROP TABLE IF EXISTS academy_annual_contract_renewal`);
   _wrapper.exec(`DROP TABLE IF EXISTS users`);
+  _wrapper.exec(`DROP TABLE IF EXISTS system_config`);
+  _wrapper.exec(`DROP TABLE IF EXISTS equipment_categories`);
 
   // ─── Create Tables ─────────────────────────────────────────────────────
 
@@ -175,6 +177,7 @@ async function initDatabase() {
       title TEXT,
       phone TEXT,
       is_active INTEGER DEFAULT 1,
+      renewal_alert_threshold INTEGER DEFAULT 30,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -211,6 +214,32 @@ async function initDatabase() {
       FOREIGN KEY (contract_renewal_id) REFERENCES academy_annual_contract_renewal(id) ON DELETE CASCADE
     )
   `);
+
+  _wrapper.exec(`
+    CREATE TABLE IF NOT EXISTS system_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
+
+  _wrapper.exec(`
+    CREATE TABLE IF NOT EXISTS equipment_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL
+    )
+  `);
+
+  // Seed system configuration
+  _wrapper.prepare(`INSERT INTO system_config (key, value) VALUES (?, ?)`).run('default_renewal_alert_threshold', '30');
+  _wrapper.prepare(`INSERT INTO system_config (key, value) VALUES (?, ?)`).run('default_price_revision_suggestion', '5.0');
+
+  // Seed equipment categories
+  const defaultCategories = [
+    'Cricket', 'Football', 'Tennis', 'Badminton', 'Athletics', 
+    'Swimming', 'Apparel', 'Footwear', 'Gym Gear', 'Team Kits', 'Nutrition'
+  ];
+  const catInsert = _wrapper.prepare(`INSERT INTO equipment_categories (name) VALUES (?)`);
+  defaultCategories.forEach(cat => catInsert.run(cat));
 
   // ─── Seed Demo Users (Bcrypt hashed) ───────────────────────────────────
 

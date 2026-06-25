@@ -1,6 +1,9 @@
 import { Bell, Search } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 function TopNav({ onSearchChange, searchValue }) {
+  const { user } = useAuth()
+
   return (
     <header className="h-16 border-b border-outline-variant bg-white px-6 flex items-center justify-between sticky top-0 z-30">
       {/* Global Search Bar */}
@@ -28,14 +31,22 @@ function TopNav({ onSearchChange, searchValue }) {
 
         {/* Profile Avatar */}
         <div className="flex items-center gap-2 border-l border-outline-variant pl-4">
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&fit=crop&q=80"
-            alt="Profile Avatar"
-            className="w-8 h-8 rounded-full border border-outline-variant object-cover"
-          />
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name || user.username}
+              className="w-8 h-8 rounded-full border border-outline-variant object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary uppercase font-mono">
+              {user?.name ? user.name[0] : (user?.username ? user.username[0] : 'U')}
+            </div>
+          )}
           <div className="hidden md:block">
-            <p className="text-xs font-bold text-on-surface">Alex Rivers</p>
-            <p className="text-[10px] text-outline font-medium uppercase font-mono tracking-wider">Analyst</p>
+            <p className="text-xs font-bold text-on-surface">{user?.name || user?.username || 'Staff'}</p>
+            <p className="text-[10px] text-outline font-medium uppercase font-mono tracking-wider">
+              {user?.title || (user?.role === 'admin' ? 'Lead Administrator' : 'Relationship Manager')}
+            </p>
           </div>
         </div>
       </div>
