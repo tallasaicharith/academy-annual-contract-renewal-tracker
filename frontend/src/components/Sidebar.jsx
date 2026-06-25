@@ -40,7 +40,7 @@ function Sidebar({ isOpen, onClose }) {
         <div className="py-6 px-6 border-b border-outline/10 flex flex-col justify-center relative">
           <div className="flex flex-col items-start">
             <img 
-              src="/oxygen-logo.svg" 
+              src="/oxygen-sports-logo.png" 
               alt="Oxygen Sports Logo" 
               className="h-10 object-contain -ml-2" 
             />
