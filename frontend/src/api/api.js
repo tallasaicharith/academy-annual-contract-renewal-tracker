@@ -1,4 +1,6 @@
+import { initialContracts } from '../mock/contracts.mock'
 import { mockManagers } from '../mock/managers.mock'
+import { mockAuditLogs } from '../mock/auditLogs.mock'
 
 // ID format helpers: Database integer ID <-> Frontend "OX-2XXX" format
 const dbIdToFrontendId = (id) => {
@@ -15,7 +17,40 @@ const frontendIdToDbId = (id) => {
   return id
 }
 
-// Global API fetch wrapper with JWT authorization header injection
+// ─── Local Storage Mock Store Logic (Fallback Handler) ──────────────────────
+
+const getStorageState = () => {
+  let contracts = localStorage.getItem('oxygen_contracts')
+  let logs = localStorage.getItem('oxygen_audit_logs')
+
+  if (!contracts) {
+    localStorage.setItem('oxygen_contracts', JSON.stringify(initialContracts))
+    contracts = JSON.stringify(initialContracts)
+  }
+  if (!logs) {
+    localStorage.setItem('oxygen_audit_logs', JSON.stringify(mockAuditLogs))
+    logs = JSON.stringify(mockAuditLogs)
+  }
+
+  return {
+    contracts: JSON.parse(contracts),
+    logs: JSON.parse(logs),
+    managers: mockManagers
+  }
+}
+
+const saveStorageState = (state) => {
+  localStorage.setItem('oxygen_contracts', JSON.stringify(state.contracts))
+  localStorage.setItem('oxygen_audit_logs', JSON.stringify(state.logs))
+}
+
+const isMockActive = () => {
+  const token = localStorage.getItem('oxygen_jwt_token')
+  return token === 'mock_token_123'
+}
+
+// ─── Global HTTP Fetch Wrapper ──────────────────────────────────────────────
+
 async function apiFetch(url, options = {}) {
   const token = localStorage.getItem('oxygen_jwt_token')
   const headers = {
@@ -34,20 +69,21 @@ async function apiFetch(url, options = {}) {
 
   if (response.status === 401) {
     localStorage.removeItem('oxygen_jwt_token')
-    // Trigger automatic login redirection
     window.location.href = '/login'
     throw new Error('Session expired. Please sign in again.')
   }
 
-  const data = await response.json()
-  if (!response.ok) {
-    throw new Error(data.error || 'Request failed')
+  // Handle non-JSON HTML error fallback
+  const contentType = response.headers.get('content-type')
+  if (!response.ok || !contentType || !contentType.includes('application/json')) {
+    const text = await response.text()
+    throw new Error(text.substring(0, 50) || 'Invalid server response')
   }
 
-  return data
+  return await response.json()
 }
 
-// Convert a single contract record from database format to UI format
+// Convert record from database schema to UI schema
 const mapContractToUI = (c) => {
   if (!c) return c
   
@@ -68,7 +104,7 @@ const mapContractToUI = (c) => {
   }
 }
 
-// Convert a single contract record from UI format to database payload format
+// Convert record from UI schema to database schema
 const mapContractToDB = (c) => {
   const body = { ...c }
   if (Array.isArray(body.equipmentCategories)) {
@@ -77,162 +113,413 @@ const mapContractToDB = (c) => {
   return body
 }
 
-export async function getContracts({ search = '', status = '', category = '', manager = '' } = {}) {
-  // Query all contracts up to backend limit constraint
-  const res = await apiFetch(`/api/contracts?limit=100&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`)
-  let list = (res.data || []).map(mapContractToUI)
+// ─── API Methods ────────────────────────────────────────────────────────────
 
-  // Filter client-side for parameters not resolved on database SQL query
+export async function getContracts({ search = '', status = '', category = '', manager = '' } = {}) {
+  if (!isMockActive()) {
+    try {
+      const res = await apiFetch(`/api/contracts?limit=100&search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}`)
+      let list = (res.data || []).map(mapContractToUI)
+
+      if (category && category !== 'All') {
+        list = list.filter(c => c.equipmentCategories.includes(category))
+      }
+      if (manager && manager !== 'All') {
+        list = list.filter(c => c.relationshipManager === manager)
+      }
+      return list
+    } catch (err) {
+      console.warn('[API] Server unreachable, loading localStorage mock contracts:', err.message)
+    }
+  }
+
+  // Local Storage Fallback
+  const { contracts } = getStorageState()
+  let filtered = [...contracts]
+
+  if (search) {
+    const q = search.toLowerCase()
+    filtered = filtered.filter(c => 
+      c.academyName.toLowerCase().includes(q) || 
+      c.id.toLowerCase().includes(q) ||
+      (c.relationshipManager && c.relationshipManager.toLowerCase().includes(q))
+    )
+  }
+  if (status && status !== 'All') {
+    filtered = filtered.filter(c => c.status === status)
+  }
   if (category && category !== 'All') {
-    list = list.filter(c => c.equipmentCategories.includes(category))
+    filtered = filtered.filter(c => c.equipmentCategories.includes(category))
   }
   if (manager && manager !== 'All') {
-    list = list.filter(c => c.relationshipManager === manager)
+    filtered = filtered.filter(c => c.relationshipManager === manager)
   }
 
-  return list
+  return filtered
 }
 
 export async function getContractById(id) {
-  const dbId = frontendIdToDbId(id)
-  const res = await apiFetch(`/api/contracts/${dbId}`)
-  
-  const contract = mapContractToUI(res.data)
-  const history = (res.auditHistory || []).map(log => ({
-    id: log.id,
-    contractRenewalId: dbIdToFrontendId(log.contractRenewalId),
-    action: log.action,
-    fieldChanged: log.field,
-    oldValue: log.oldValue,
-    newValue: log.newValue,
-    changedBy: log.changedBy,
-    createdAt: log.createdAt,
-    description: log.description || `${log.action} performed on contract ${dbIdToFrontendId(log.contractRenewalId)}`
-  }))
+  if (!isMockActive()) {
+    try {
+      const dbId = frontendIdToDbId(id)
+      const res = await apiFetch(`/api/contracts/${dbId}`)
+      
+      const contract = mapContractToUI(res.data)
+      const history = (res.auditHistory || []).map(log => ({
+        id: log.id,
+        contractRenewalId: dbIdToFrontendId(log.contractRenewalId),
+        action: log.action,
+        fieldChanged: log.field,
+        oldValue: log.oldValue,
+        newValue: log.newValue,
+        changedBy: log.changedBy,
+        createdAt: log.createdAt,
+        description: log.description || `${log.action} performed on contract ${dbIdToFrontendId(log.contractRenewalId)}`
+      }))
+      return { contract, history }
+    } catch (err) {
+      console.warn('[API] Server unreachable, loading localStorage mock contract details:', err.message)
+    }
+  }
 
+  // Local Storage Fallback
+  const { contracts, logs } = getStorageState()
+  const contract = contracts.find(c => c.id === id)
+  if (!contract) throw new Error('Contract not found')
+  
+  const history = logs.filter(l => l.contractRenewalId === id)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    
   return { contract, history }
 }
 
 export async function createContract(contractData) {
-  const dbPayload = mapContractToDB(contractData)
-  const res = await apiFetch('/api/contracts', {
-    method: 'POST',
-    body: JSON.stringify(dbPayload)
-  })
-  return mapContractToUI(res.data)
+  if (!isMockActive()) {
+    try {
+      const dbPayload = mapContractToDB(contractData)
+      const res = await apiFetch('/api/contracts', {
+        method: 'POST',
+        body: JSON.stringify(dbPayload)
+      })
+      return mapContractToUI(res.data)
+    } catch (err) {
+      console.warn('[API] Server unreachable, creating contract inside localStorage:', err.message)
+    }
+  }
+
+  // Local Storage Fallback
+  const state = getStorageState()
+  const nextNum = 2000 + state.contracts.length + 1
+  const id = `OX-${nextNum}`
+  
+  const newContract = {
+    id,
+    ...contractData,
+    priceRevision: parseFloat(contractData.priceRevision || 0),
+    contractValue: parseFloat(contractData.contractValue || 0),
+    documentName: contractData.documentName || 'contract_attachment.pdf',
+  }
+  state.contracts.unshift(newContract)
+
+  const log = {
+    id: `a-${Date.now()}`,
+    contractRenewalId: id,
+    action: 'CREATE',
+    fieldChanged: 'contract',
+    oldValue: 'None',
+    newValue: 'Created',
+    changedBy: contractData.relationshipManager || 'System',
+    createdAt: new Date().toISOString(),
+    description: `Contract ${id} registered for ${contractData.academyName}`
+  }
+  state.logs.unshift(log)
+  
+  saveStorageState(state)
+  return newContract
 }
 
 export async function updateContract(id, contractData) {
-  const dbId = frontendIdToDbId(id)
-  const dbPayload = mapContractToDB(contractData)
-  const res = await apiFetch(`/api/contracts/${dbId}`, {
-    method: 'PUT',
-    body: JSON.stringify(dbPayload)
+  if (!isMockActive()) {
+    try {
+      const dbId = frontendIdToDbId(id)
+      const dbPayload = mapContractToDB(contractData)
+      const res = await apiFetch(`/api/contracts/${dbId}`, {
+        method: 'PUT',
+        body: JSON.stringify(dbPayload)
+      })
+      return mapContractToUI(res.data)
+    } catch (err) {
+      console.warn('[API] Server unreachable, updating contract inside localStorage:', err.message)
+    }
+  }
+
+  // Local Storage Fallback
+  const state = getStorageState()
+  const idx = state.contracts.findIndex(c => c.id === id)
+  if (idx === -1) throw new Error('Contract not found')
+  
+  const oldContract = state.contracts[idx]
+  const updatedContract = {
+    ...oldContract,
+    ...contractData,
+    priceRevision: parseFloat(contractData.priceRevision || 0),
+    contractValue: parseFloat(contractData.contractValue || 0),
+  }
+  state.contracts[idx] = updatedContract
+
+  const changes = []
+  Object.keys(contractData).forEach(key => {
+    if (contractData[key] !== undefined && JSON.stringify(contractData[key]) !== JSON.stringify(oldContract[key])) {
+      changes.push({ key, oldVal: oldContract[key], newVal: contractData[key] })
+    }
   })
-  return mapContractToUI(res.data)
+
+  changes.forEach(change => {
+    state.logs.unshift({
+      id: `a-${Date.now()}-${change.key}`,
+      contractRenewalId: id,
+      action: 'UPDATE',
+      fieldChanged: change.key,
+      oldValue: String(change.oldVal),
+      newValue: String(change.newVal),
+      changedBy: contractData.relationshipManager || oldContract.relationshipManager || 'System',
+      createdAt: new Date().toISOString(),
+      description: `Updated ${change.key} from ${change.oldVal} to ${change.newVal}`
+    })
+  })
+
+  saveStorageState(state)
+  return updatedContract
 }
 
 export async function updateStatus(id, newStatus) {
-  const dbId = frontendIdToDbId(id)
-  const res = await apiFetch(`/api/contracts/${dbId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status: newStatus })
+  if (!isMockActive()) {
+    try {
+      const dbId = frontendIdToDbId(id)
+      const res = await apiFetch(`/api/contracts/${dbId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus })
+      })
+      return mapContractToUI(res.data)
+    } catch (err) {
+      console.warn('[API] Server unreachable, shifting status inside localStorage:', err.message)
+    }
+  }
+
+  // Local Storage Fallback
+  const state = getStorageState()
+  const idx = state.contracts.findIndex(c => c.id === id)
+  if (idx === -1) throw new Error('Contract not found')
+  
+  const oldStatus = state.contracts[idx].status
+  state.contracts[idx].status = newStatus
+
+  state.logs.unshift({
+    id: `a-${Date.now()}`,
+    contractRenewalId: id,
+    action: 'STATUS_CHANGE',
+    fieldChanged: 'status',
+    oldValue: oldStatus,
+    newValue: newStatus,
+    changedBy: state.contracts[idx].relationshipManager || 'System',
+    createdAt: new Date().toISOString(),
+    description: `Status changed from ${oldStatus} to ${newStatus}`
   })
-  return mapContractToUI(res.data)
+
+  saveStorageState(state)
+  return state.contracts[idx]
 }
 
 export async function getDashboardSummary() {
-  const [summary, activitiesRes] = await Promise.all([
-    apiFetch('/api/dashboard/summary'),
-    apiFetch('/api/dashboard/activities')
-  ])
+  if (!isMockActive()) {
+    try {
+      const [summary, activitiesRes] = await Promise.all([
+        apiFetch('/api/dashboard/summary'),
+        apiFetch('/api/dashboard/activities')
+      ])
 
-  const statusMap = summary.statusCounts || {}
-  const totalActive = (statusMap['Active'] || 0) + (statusMap['Renewed'] || 0)
-  const expiringSoon = statusMap['Expiring Soon'] || 0
-  const overdue = statusMap['Expired'] || 0
+      const statusMap = summary.statusCounts || {}
+      const totalActive = (statusMap['Active'] || 0) + (statusMap['Renewed'] || 0)
+      const expiringSoon = statusMap['Expiring Soon'] || 0
+      const overdue = statusMap['Expired'] || 0
 
-  // Fetch all to compute average revision across the current database contracts
-  const contracts = await getContracts()
-  const avgRevision = contracts.length > 0
-    ? contracts.reduce((sum, c) => sum + (c.priceRevision || 0), 0) / contracts.length
+      const contracts = await getContracts()
+      const avgRevision = contracts.length > 0
+        ? contracts.reduce((sum, c) => sum + (c.priceRevision || 0), 0) / contracts.length
+        : 0
+
+      const activities = (activitiesRes.activities || []).slice(0, 5).map(log => ({
+        id: log.id,
+        contractRenewalId: dbIdToFrontendId(log.contractRenewalId),
+        action: log.action,
+        fieldChanged: log.fieldChanged,
+        oldValue: log.oldValue,
+        newValue: log.newValue,
+        changedBy: log.changedBy,
+        createdAt: log.createdAt,
+        description: log.description || `${log.action} performed on contract ${dbIdToFrontendId(log.contractRenewalId)}`,
+        academyName: log.academyName || 'Unknown Academy'
+      }))
+
+      return {
+        totalActive,
+        expiringSoon,
+        overdue,
+        avgPriceRevision: avgRevision.toFixed(1),
+        totalContractValue: summary.totalValue,
+        recentActivities: activities
+      }
+    } catch (err) {
+      console.warn('[API] Server unreachable, loading localStorage dashboard stats:', err.message)
+    }
+  }
+
+  // Local Storage Fallback
+  const { contracts, logs } = getStorageState()
+  
+  const totalActive = contracts.filter(c => c.status === 'Active' || c.status === 'Renewed').length
+  const expiringSoon = contracts.filter(c => c.status === 'Expiring Soon').length
+  const overdue = contracts.filter(c => c.status === 'Overdue' || c.status === 'Expired').length
+  
+  const totalValue = contracts.reduce((sum, c) => sum + (c.contractValue || 0), 0)
+  const avgRevision = contracts.length > 0 
+    ? contracts.reduce((sum, c) => sum + (c.priceRevision || 0), 0) / contracts.length 
     : 0
 
-  const activities = (activitiesRes.activities || []).slice(0, 5).map(log => ({
-    id: log.id,
-    contractRenewalId: dbIdToFrontendId(log.contractRenewalId),
-    action: log.action,
-    fieldChanged: log.fieldChanged,
-    oldValue: log.oldValue,
-    newValue: log.newValue,
-    changedBy: log.changedBy,
-    createdAt: log.createdAt,
-    description: log.description || `${log.action} performed on contract ${dbIdToFrontendId(log.contractRenewalId)}`,
-    academyName: log.academyName || 'Unknown Academy'
-  }))
+  const recentActivities = [...logs]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5)
+    .map(log => {
+      const contract = contracts.find(c => c.id === log.contractRenewalId)
+      return {
+        ...log,
+        academyName: contract ? contract.academyName : 'Unknown Academy'
+      }
+    })
 
   return {
     totalActive,
     expiringSoon,
     overdue,
     avgPriceRevision: avgRevision.toFixed(1),
-    totalContractValue: summary.totalValue,
-    recentActivities: activities
+    totalContractValue: totalValue,
+    recentActivities
   }
 }
 
 export async function getReportsSummary() {
-  const [summary, expiringRes] = await Promise.all([
-    apiFetch('/api/reports/summary'),
-    apiFetch('/api/reports/expiring')
-  ])
+  if (!isMockActive()) {
+    try {
+      const [summary, expiringRes] = await Promise.all([
+        apiFetch('/api/reports/summary'),
+        apiFetch('/api/reports/expiring')
+      ])
 
-  // 1. categoriesData
-  const categoriesData = (summary.categoryBreakdown || []).map(cat => ({
-    name: cat.category,
-    value: cat.count
-  }))
+      const categoriesData = (summary.categoryBreakdown || []).map(cat => ({
+        name: cat.category,
+        value: cat.count
+      }))
 
-  // 2. statusCounts
-  const statusCounts = {
-    'Active': 0,
-    'In Review': 0,
-    'Draft': 0,
-    'Expiring Soon': 0,
-    'Overdue': 0,
-    'Renewed': 0
-  }
-  ;(summary.statusDistribution || []).forEach(row => {
-    if (statusCounts[row.status] !== undefined) {
-      statusCounts[row.status] = row.count
+      const statusCounts = {
+        'Active': 0,
+        'In Review': 0,
+        'Draft': 0,
+        'Expiring Soon': 0,
+        'Overdue': 0,
+        'Renewed': 0
+      }
+      ;(summary.statusDistribution || []).forEach(row => {
+        if (statusCounts[row.status] !== undefined) {
+          statusCounts[row.status] = row.count
+        }
+      })
+
+      const donutData = [
+        { name: 'Active', value: (statusCounts['Active'] || 0) + (statusCounts['Renewed'] || 0) },
+        { name: 'In Review', value: statusCounts['In Review'] || 0 },
+        { name: 'Draft', value: (statusCounts['Draft'] || 0) + (statusCounts['Expiring Soon'] || 0) + (statusCounts['Overdue'] || 0) }
+      ]
+
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const currentMonthIdx = new Date().getMonth()
+      const trendsData = []
+      
+      for (let i = 0; i < 6; i++) {
+        const idx = (currentMonthIdx - 3 + i + 12) % 12
+        const name = months[idx]
+        const dbMonth = (summary.monthlyTrends || []).find(t => {
+          if (!t.month) return false
+          const m = parseInt(t.month.split('-')[1], 10)
+          return m === (idx + 1)
+        })
+        const baseVal = dbMonth ? dbMonth.totalValue : 450000 + i * 25000
+        const forecastVal = baseVal * 1.055
+
+        trendsData.push({
+          month: name,
+          current: i <= 2 ? baseVal : null,
+          forecast: Math.round(forecastVal)
+        })
+      }
+
+      const allContracts = await getContracts()
+      const today = new Date()
+      const sixtyDaysLater = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000)
+      const upcomingRenewals = allContracts
+        .filter(c => {
+          if (!c.renewalDate) return false
+          const rDate = new Date(c.renewalDate)
+          return rDate >= today && rDate <= sixtyDaysLater
+        })
+        .sort((a, b) => new Date(a.renewalDate) - new Date(b.renewalDate))
+
+      return {
+        categoriesData,
+        donutData,
+        trendsData,
+        upcomingRenewals,
+        statusCounts
+      }
+    } catch (err) {
+      console.warn('[API] Server unreachable, loading localStorage reports:', err.message)
     }
-  })
+  }
 
-  // 3. donutData
+  // Local Storage Fallback
+  const { contracts } = getStorageState()
+
+  const categoryCounts = {}
+  contracts.forEach(c => {
+    if (!c.equipmentCategories) return
+    c.equipmentCategories.forEach(cat => {
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+    })
+  })
+  const categoriesData = Object.entries(categoryCounts).map(([name, value]) => ({ name, value }))
+
+  const statusCounts = {
+    'Active': contracts.filter(c => c.status === 'Active').length,
+    'In Review': contracts.filter(c => c.status === 'In Review').length,
+    'Draft': contracts.filter(c => c.status === 'Draft').length,
+    'Expiring Soon': contracts.filter(c => c.status === 'Expiring Soon').length,
+    'Overdue': contracts.filter(c => c.status === 'Overdue' || c.status === 'Expired').length,
+    'Renewed': contracts.filter(c => c.status === 'Renewed').length,
+  }
+
   const donutData = [
-    { name: 'Active', value: (statusCounts['Active'] || 0) + (statusCounts['Renewed'] || 0) },
-    { name: 'In Review', value: statusCounts['In Review'] || 0 },
-    { name: 'Draft', value: (statusCounts['Draft'] || 0) + (statusCounts['Expiring Soon'] || 0) + (statusCounts['Overdue'] || 0) }
+    { name: 'Active', value: statusCounts['Active'] + statusCounts['Renewed'] },
+    { name: 'In Review', value: statusCounts['In Review'] },
+    { name: 'Draft', value: statusCounts['Draft'] + statusCounts['Expiring Soon'] + statusCounts['Overdue'] }
   ]
 
-  // 4. trendsData (next 6 months price revision projection)
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const currentMonthIdx = new Date().getMonth()
   const trendsData = []
-  
   for (let i = 0; i < 6; i++) {
     const idx = (currentMonthIdx - 3 + i + 12) % 12
     const name = months[idx]
-    
-    const dbMonth = (summary.monthlyTrends || []).find(t => {
-      if (!t.month) return false
-      const m = parseInt(t.month.split('-')[1], 10)
-      return m === (idx + 1)
-    })
-    
-    const baseVal = dbMonth ? dbMonth.totalValue : 450000 + i * 25000
-    const forecastVal = baseVal * 1.055 // apply 5.5% revision forecast
-
+    const baseVal = 450000 + i * 25000
+    const forecastVal = baseVal * 1.055
     trendsData.push({
       month: name,
       current: i <= 2 ? baseVal : null,
@@ -240,11 +527,9 @@ export async function getReportsSummary() {
     })
   }
 
-  // 5. upcomingRenewals
-  const allContracts = await getContracts()
   const today = new Date()
   const sixtyDaysLater = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000)
-  const upcomingRenewals = allContracts
+  const upcomingRenewals = contracts
     .filter(c => {
       if (!c.renewalDate) return false
       const rDate = new Date(c.renewalDate)
