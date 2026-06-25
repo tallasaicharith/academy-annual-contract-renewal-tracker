@@ -41,7 +41,7 @@ export default function Login() {
         
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
-          <img src="/oxygen-sports-logo.png" alt="Oxygen Sports Logo" className="h-16 object-contain mb-3" />
+          <img src="/logo.png" alt="Oxygen Sports" className="h-10 w-auto mb-3" />
           <div className="text-center">
             <span className="text-[10px] font-mono tracking-[0.2em] font-bold text-outline uppercase">
               Contract Renewal Monitoring
