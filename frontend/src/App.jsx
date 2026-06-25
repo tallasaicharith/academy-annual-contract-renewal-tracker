@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import Login from './screens/Login'
 import AcademyAnnualContractRenewalDashboard from './screens/AcademyAnnualContractRenewalDashboard'
 import AcademyAnnualContractRenewalEntryForm from './screens/AcademyAnnualContractRenewalEntryForm'
 import DetailAndHistoryView from './screens/DetailAndHistoryView'
@@ -52,37 +55,49 @@ function App() {
   const [searchValue, setSearchValue] = useState('')
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={<Layout searchValue={searchValue} onSearchChange={setSearchValue} />}
-      >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route 
-          path="dashboard" 
-          element={<AcademyAnnualContractRenewalDashboard searchValue={searchValue} />} 
-        />
-        <Route 
-          path="contracts/new" 
-          element={<AcademyAnnualContractRenewalEntryForm mode="create" />} 
-        />
-        <Route 
-          path="academies/:id" 
-          element={<DetailAndHistoryView />} 
-        />
-        <Route 
-          path="contracts/:id/edit" 
-          element={<AcademyAnnualContractRenewalEntryForm mode="edit" />} 
-        />
-        <Route 
-          path="reports" 
-          element={<ReportsAndAnalyticsDashboard />} 
-        />
-        <Route path="settings" element={<SettingsPlaceholder />} />
-        <Route path="help" element={<HelpCenterPlaceholder />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        {/* Public Login Route */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Protected Dashboard/Admin Routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout searchValue={searchValue} onSearchChange={setSearchValue} />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route 
+            path="dashboard" 
+            element={<AcademyAnnualContractRenewalDashboard searchValue={searchValue} />} 
+          />
+          <Route 
+            path="contracts/new" 
+            element={<AcademyAnnualContractRenewalEntryForm mode="create" />} 
+          />
+          <Route 
+            path="academies/:id" 
+            element={<DetailAndHistoryView />} 
+          />
+          <Route 
+            path="contracts/:id/edit" 
+            element={<AcademyAnnualContractRenewalEntryForm mode="edit" />} 
+          />
+          <Route 
+            path="reports" 
+            element={<ReportsAndAnalyticsDashboard />} 
+          />
+          <Route path="settings" element={<SettingsPlaceholder />} />
+          <Route path="help" element={<HelpCenterPlaceholder />} />
+        </Route>
+        
+        {/* Redirect unknown routes */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </AuthProvider>
   )
 }
 
