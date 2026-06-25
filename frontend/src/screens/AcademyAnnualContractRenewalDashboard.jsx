@@ -25,7 +25,8 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts'
-import { getContracts, getDashboardSummary, updateStatus } from '../api/api'
+import { getContracts, getDashboardSummary, updateStatus, getUsers } from '../api/api'
+import { useAuth } from '../context/AuthContext'
 import KPICard from '../components/KPICard'
 import DataTable from '../components/DataTable'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -33,14 +34,15 @@ import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_OPTIONS = ['Draft', 'In Review', 'Active', 'Expiring Soon', 'Overdue', 'Renewed']
 const CATEGORY_OPTIONS = ['Cricket', 'Football', 'Tennis', 'Badminton', 'Athletics', 'Swimming', 'Apparel', 'Team Kits', 'Gym Gear']
-const MANAGER_OPTIONS = ['Alex Rivers', 'Sarah Jenkins', 'Marcus Thorne']
 
 function AcademyAnnualContractRenewalDashboard({ searchValue }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   
   // Data State
   const [summary, setSummary] = useState(null)
   const [contracts, setContracts] = useState([])
+  const [managers, setManagers] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
@@ -66,6 +68,16 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
   useEffect(() => {
     fetchDashboardData()
   }, [searchValue, categoryFilter, statusFilter, managerFilter, activeTab, page])
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      getUsers()
+        .then(res => {
+          setManagers(res.filter(u => u.role === 'employee' && u.isActive === 1))
+        })
+        .catch(err => console.error(err))
+    }
+  }, [user])
 
   const fetchDashboardData = async () => {
     try {
@@ -307,16 +319,18 @@ function AcademyAnnualContractRenewalDashboard({ searchValue }) {
             ))}
           </select>
 
-          <select
-            value={managerFilter}
-            onChange={(e) => { setManagerFilter(e.target.value); setPage(1) }}
-            className="flat-input px-3 py-2 text-xs font-bold uppercase tracking-wider text-on-surface bg-white cursor-pointer"
-          >
-            <option value="All">All Managers</option>
-            {MANAGER_OPTIONS.map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          {user?.role === 'admin' && (
+            <select
+              value={managerFilter}
+              onChange={(e) => { setManagerFilter(e.target.value); setPage(1) }}
+              className="flat-input px-3 py-2 text-xs font-bold uppercase tracking-wider text-on-surface bg-white cursor-pointer"
+            >
+              <option value="All">All Managers</option>
+              {managers.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          )}
 
           {/* Export Action */}
           <button

@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-module.exports = function authMiddleware(req, res, next) {
+function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -9,7 +9,7 @@ module.exports = function authMiddleware(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = decoded; // { id, role, username }
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -20,4 +20,19 @@ module.exports = function authMiddleware(req, res, next) {
     }
     return res.status(500).json({ error: 'Authentication failed.' });
   }
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+  }
+  next();
+}
+
+module.exports = {
+  requireAuth,
+  requireAdmin
 };

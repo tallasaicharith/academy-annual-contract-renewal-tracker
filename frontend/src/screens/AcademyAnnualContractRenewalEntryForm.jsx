@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { 
   ArrowLeft, 
-  User, 
   Calendar, 
   DollarSign, 
   Percent, 
@@ -11,8 +10,8 @@ import {
   Trash2,
   Sparkles
 } from 'lucide-react'
-import { getContractById, createContract, updateContract } from '../api/api'
-import { mockManagers } from '../mock/managers.mock'
+import { getContractById, createContract, updateContract, getUsers } from '../api/api'
+import { useAuth } from '../context/AuthContext'
 import Chip from '../components/Chip'
 
 const CATEGORY_OPTIONS = [
@@ -25,11 +24,13 @@ const STATUS_OPTIONS = ['Draft', 'In Review', 'Active', 'Expiring Soon', 'Overdu
 function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { user } = useAuth()
   
   // States
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
+  const [managers, setManagers] = useState([])
   
   const [formData, setFormData] = useState({
     academyName: '',
@@ -38,11 +39,29 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
     renewalDate: '',
     contractValue: '',
     priceRevision: '',
-    relationshipManager: '',
+    relationshipManagerId: '',
     status: 'Draft',
     notes: '',
     documentName: ''
   })
+
+  // Load active managers for admin selector
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      getUsers()
+        .then(res => {
+          setManagers(res.filter(u => u.role === 'employee' && u.isActive === 1))
+        })
+        .catch(err => console.error('Failed to load managers:', err))
+    }
+  }, [user])
+
+  // Lock to self if employee
+  useEffect(() => {
+    if (mode === 'create' && user && user.role !== 'admin') {
+      setFormData(prev => ({ ...prev, relationshipManagerId: user.id }))
+    }
+  }, [user, mode])
 
   // Pre-load data for Edit Mode
   useEffect(() => {
@@ -63,7 +82,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
         renewalDate: c.renewalDate || '',
         contractValue: c.contractValue || '',
         priceRevision: c.priceRevision || '',
-        relationshipManager: c.relationshipManager || '',
+        relationshipManagerId: c.relationshipManagerId || '',
         status: c.status || 'Draft',
         notes: c.notes || '',
         documentName: c.documentName || ''
@@ -80,17 +99,16 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    // Clean error on change
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
   }
 
   // Handle manager selection
-  const handleManagerSelect = (name) => {
-    setFormData(prev => ({ ...prev, relationshipManager: name }))
-    if (errors.relationshipManager) {
-      setErrors(prev => ({ ...prev, relationshipManager: '' }))
+  const handleManagerSelect = (managerId) => {
+    setFormData(prev => ({ ...prev, relationshipManagerId: managerId }))
+    if (errors.relationshipManagerId) {
+      setErrors(prev => ({ ...prev, relationshipManagerId: '' }))
     }
   }
 
@@ -149,7 +167,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
       err.contractValue = 'Contract value must be positive.'
     }
 
-    if (!formData.relationshipManager) err.relationshipManager = 'Relationship manager is required.'
+    if (!formData.relationshipManagerId) err.relationshipManagerId = 'Relationship manager is required.'
     
     setErrors(err)
     return Object.keys(err).length === 0
@@ -170,6 +188,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
       navigate('/dashboard')
     } catch (err) {
       console.error(err)
+      setErrors({ submit: err.message || 'Failed to save contract.' })
     } finally {
       setSaving(false)
     }
@@ -188,6 +207,7 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
       {/* Header breadcrumb & back button */}
       <div className="space-y-3">
         <button
+          type="button"
           onClick={() => navigate('/dashboard')}
           className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider font-mono cursor-pointer"
         >
@@ -202,8 +222,15 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
         </p>
       </div>
 
-      {/* Main Entry Card */}
+      {/* Main Entry Form Card */}
       <form onSubmit={handleSubmit} className="flat-card p-6 sm:p-8 bg-white space-y-6">
+        
+        {errors.submit && (
+          <div className="p-4 bg-error/10 border border-error/25 text-error rounded-sm text-xs font-bold">
+            {errors.submit}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Academy Name */}
           <div className="space-y-1.5 md:col-span-2">
@@ -260,16 +287,13 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
             <label className="text-[10px] font-bold text-outline uppercase font-mono tracking-wider">
               Contract Start Date
             </label>
-            <div className="relative">
-              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
-              <input
-                type="date"
-                name="contractStartDate"
-                value={formData.contractStartDate}
-                onChange={handleChange}
-                className="flat-input w-full pl-10 pr-3.5 py-2"
-              />
-            </div>
+            <input
+              type="date"
+              name="contractStartDate"
+              value={formData.contractStartDate}
+              onChange={handleChange}
+              className="flat-input w-full px-3.5 py-2"
+            />
           </div>
 
           {/* Renewal Date */}
@@ -277,18 +301,15 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
             <label className="text-[10px] font-bold text-outline uppercase font-mono tracking-wider">
               Renewal Date <span className="text-error font-sans font-bold">*</span>
             </label>
-            <div className="relative">
-              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
-              <input
-                type="date"
-                name="renewalDate"
-                value={formData.renewalDate}
-                onChange={handleChange}
-                className={`flat-input w-full pl-10 pr-3.5 py-2 ${
-                  errors.renewalDate ? 'border-error ring-1 ring-error/25' : 'border-outline-variant'
-                }`}
-              />
-            </div>
+            <input
+              type="date"
+              name="renewalDate"
+              value={formData.renewalDate}
+              onChange={handleChange}
+              className={`flat-input w-full px-3.5 py-2 ${
+                errors.renewalDate ? 'border-error ring-1 ring-error/25' : 'border-outline-variant'
+              }`}
+            />
             {errors.renewalDate && (
               <p className="text-xs text-error font-medium">{errors.renewalDate}</p>
             )}
@@ -359,35 +380,62 @@ function AcademyAnnualContractRenewalEntryForm({ mode = 'create' }) {
             <label className="text-[10px] font-bold text-outline uppercase font-mono tracking-wider">
               Assigned Relationship Manager <span className="text-error font-sans font-bold">*</span>
             </label>
+            
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {mockManagers.map((mgr) => {
-                const isSelected = formData.relationshipManager === mgr.name
-                return (
-                  <button
-                    key={mgr.id}
-                    type="button"
-                    onClick={() => handleManagerSelect(mgr.name)}
-                    className={`p-3 border rounded-sm flex items-center gap-3 text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant'
-                    }`}
-                  >
+              {user?.role === 'admin' ? (
+                managers.map((mgr) => {
+                  const isSelected = String(formData.relationshipManagerId) === String(mgr.id)
+                  return (
+                    <button
+                      key={mgr.id}
+                      type="button"
+                      onClick={() => handleManagerSelect(mgr.id)}
+                      className={`p-3 border rounded-sm flex items-center gap-3 text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-outline-variant hover:bg-surface-container-low text-on-surface-variant'
+                      }`}
+                    >
+                      {mgr.avatarUrl ? (
+                        <img
+                          src={mgr.avatarUrl}
+                          alt={mgr.name}
+                          className="w-8 h-8 rounded-full border border-outline-variant object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary border border-outline-variant uppercase shrink-0">
+                          {mgr.name ? mgr.name[0] : 'U'}
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <p className="text-xs font-bold truncate">{mgr.name}</p>
+                        <p className="text-[9px] uppercase font-mono tracking-wide text-outline truncate">{mgr.title}</p>
+                      </div>
+                    </button>
+                  )
+                })
+              ) : (
+                <div className="p-3 border border-primary bg-primary/5 text-primary rounded-sm flex items-center gap-3 text-left col-span-3 max-w-sm">
+                  {user?.avatarUrl ? (
                     <img
-                      src={mgr.avatar}
-                      alt={mgr.name}
-                      className="w-8 h-8 rounded-full border border-outline-variant object-cover"
+                      src={user.avatarUrl}
+                      alt={user.name || user.username}
+                      className="w-8 h-8 rounded-full border border-outline-variant object-cover shrink-0"
                     />
-                    <div>
-                      <p className="text-xs font-bold">{mgr.name}</p>
-                      <p className="text-[9px] uppercase font-mono tracking-wide text-outline">{mgr.title}</p>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary border border-outline-variant uppercase shrink-0">
+                      {user?.name ? user.name[0] : 'U'}
                     </div>
-                  </button>
-                )
-              })}
+                  )}
+                  <div>
+                    <p className="text-xs font-bold">{user?.name || user?.username}</p>
+                    <p className="text-[9px] uppercase font-mono tracking-wide text-outline">{user?.title || 'Relationship Manager'}</p>
+                  </div>
+                </div>
+              )}
             </div>
-            {errors.relationshipManager && (
-              <p className="text-xs text-error font-medium">{errors.relationshipManager}</p>
+            {errors.relationshipManagerId && (
+              <p className="text-xs text-error font-medium">{errors.relationshipManagerId}</p>
             )}
           </div>
 

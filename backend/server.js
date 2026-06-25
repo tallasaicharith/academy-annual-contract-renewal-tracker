@@ -85,11 +85,13 @@ const authRoutes = require('./routes/auth');
 const contractRoutes = require('./routes/contracts');
 const dashboardRoutes = require('./routes/dashboard');
 const reportRoutes = require('./routes/reports');
+const userRoutes = require('./routes/users');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/users', userRoutes);
 
 // ─── Health Check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

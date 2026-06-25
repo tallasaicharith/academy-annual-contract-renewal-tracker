@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { KeyRound, User, AlertCircle } from 'lucide-react'
+import { KeyRound, Mail, AlertCircle } from 'lucide-react'
 
 export default function Login() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -15,17 +15,21 @@ export default function Login() {
     e.preventDefault()
     setError('')
 
-    if (!username.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError('Please fill in all credentials.')
       return
     }
 
     setSubmitting(true)
     try {
-      await login(username, password)
-      navigate('/dashboard')
+      const loggedUser = await login(email, password)
+      if (loggedUser.role === 'admin') {
+        navigate('/dashboard')
+      } else {
+        navigate('/my-contracts')
+      }
     } catch (err) {
-      setError(err.message || 'Invalid username or password.')
+      setError(err.message || 'Invalid email or password.')
     } finally {
       setSubmitting(false)
     }
@@ -62,18 +66,18 @@ export default function Login() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Username */}
+          {/* Email */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-outline uppercase tracking-wider block font-mono">
-              Username
+              Email Address
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter email address"
                 className="w-full pl-10 pr-4 py-2.5 bg-[#111315] border border-outline/20 text-white rounded-sm text-xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-sans"
                 disabled={submitting}
               />

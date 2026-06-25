@@ -1,3 +1,4 @@
+import { useAuth } from '../context/AuthContext'
 import StatusBadge from './StatusBadge'
 import { Eye, Pencil } from 'lucide-react'
 
@@ -12,6 +13,9 @@ function DataTable({
   onPageChange,
   limit = 20
 }) {
+  const { user } = useAuth()
+  const showManager = user?.role === 'admin'
+
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -42,7 +46,7 @@ function DataTable({
               <th className="py-3 px-4">Equipment Categories</th>
               <th className="py-3 px-4">Renewal Date</th>
               <th className="py-3 px-4">Price Revision</th>
-              <th className="py-3 px-4">Relationship Manager</th>
+              {showManager && <th className="py-3 px-4">Relationship Manager</th>}
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
@@ -50,7 +54,7 @@ function DataTable({
           <tbody className="divide-y divide-outline-variant">
             {contracts.length === 0 ? (
               <tr>
-                <td colSpan="7" className="py-8 text-center text-outline text-xs">
+                <td colSpan={showManager ? 7 : 6} className="py-8 text-center text-outline text-xs">
                   No contracts found matching your filters.
                 </td>
               </tr>
@@ -93,16 +97,18 @@ function DataTable({
                   </td>
                   
                   {/* Manager */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5.5 h-5.5 rounded-full bg-[#0059bb]/10 flex items-center justify-center text-[10px] font-bold text-primary border border-outline-variant uppercase">
-                        {c.relationshipManager ? c.relationshipManager.split(' ').map(n=>n[0]).join('') : 'RM'}
+                  {showManager && (
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5.5 h-5.5 rounded-full bg-[#0059bb]/10 flex items-center justify-center text-[10px] font-bold text-primary border border-outline-variant uppercase">
+                          {c.relationshipManager ? c.relationshipManager.split(' ').map(n=>n[0]).join('') : 'RM'}
+                        </div>
+                        <span className="font-medium text-on-surface-variant">
+                          {c.relationshipManager || '-'}
+                        </span>
                       </div>
-                      <span className="font-medium text-on-surface-variant">
-                        {c.relationshipManager || '-'}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
+                  )}
                   
                   {/* Status Badges */}
                   <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>

@@ -18,10 +18,8 @@ class PreparedStatement {
     this._wrapper = wrapper;
   }
 
-  // Normalize arguments for sql.js: handle positional (?), named (@key), and spread args
   _normalizeParams(args) {
     if (args.length === 0) return undefined;
-    // Single object argument → named parameters (add @ prefix for sql.js)
     if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0])) {
       const obj = {};
       for (const [key, value] of Object.entries(args[0])) {
@@ -30,7 +28,6 @@ class PreparedStatement {
       }
       return obj;
     }
-    // Multiple args → positional parameters as array
     return args.map(v => (v === undefined ? null : v));
   }
 
@@ -101,7 +98,7 @@ class DatabaseWrapper {
     try {
       this._db.run(`PRAGMA ${str}`);
     } catch (e) {
-      // Some pragmas are not supported in sql.js — ignore silently
+      // Ignore
     }
   }
 
@@ -119,7 +116,7 @@ class DatabaseWrapper {
         self._save();
         return result;
       } catch (e) {
-        console.error('DB Transaction failed with original error:', e);
+        console.error('DB Transaction failed:', e);
         try {
           console.log('[DB TRANSACTION] ROLLBACK');
           self._db.run('ROLLBACK');
@@ -133,16 +130,14 @@ class DatabaseWrapper {
   }
 
   _save() {
-    console.log(`[DB SAVE] Checking save. inTransaction: ${this._inTransaction}`);
     if (this._inTransaction) return;
-    console.log('[DB SAVE] Exporting database and writing to disk...');
     const data = this._db.export();
     fs.writeFileSync(dbPath, Buffer.from(data));
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Database Initialization (async — called once at server startup)
+// Database Initialization
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function initDatabase() {
@@ -161,15 +156,25 @@ async function initDatabase() {
   // Enable foreign keys
   _wrapper.pragma('foreign_keys = ON');
 
+  // DROP old tables first to ensure clean migration structure
+  _wrapper.exec(`DROP TABLE IF EXISTS audit_logs`);
+  _wrapper.exec(`DROP TABLE IF EXISTS academy_annual_contract_renewal`);
+  _wrapper.exec(`DROP TABLE IF EXISTS users`);
+
   // ─── Create Tables ─────────────────────────────────────────────────────
 
   _wrapper.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      role TEXT DEFAULT 'staff',
+      role TEXT CHECK(role IN ('admin', 'employee')) DEFAULT 'employee',
+      avatar_url TEXT,
+      title TEXT,
+      phone TEXT,
+      is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -181,14 +186,15 @@ async function initDatabase() {
       equipment_categories TEXT NOT NULL,
       contract_value REAL NOT NULL,
       price_revision REAL DEFAULT 0,
-      relationship_manager TEXT NOT NULL,
+      relationship_manager_id INTEGER NOT NULL,
       renewal_date DATE NOT NULL,
       contract_start_date DATE NOT NULL,
       status TEXT DEFAULT 'Active' CHECK(status IN ('Active','Expiring Soon','Expired','Renewed','Cancelled')),
       notes TEXT,
       created_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (relationship_manager_id) REFERENCES users(id) ON DELETE RESTRICT
     )
   `);
 
@@ -206,237 +212,266 @@ async function initDatabase() {
     )
   `);
 
-  // ─── Seed Default Admin User ───────────────────────────────────────────
+  // ─── Seed Demo Users (Bcrypt hashed) ───────────────────────────────────
 
-  const existingAdmin = _wrapper.prepare('SELECT id FROM users WHERE username = ?').get('admin');
-  if (!existingAdmin) {
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-    _wrapper.prepare(
-      'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)'
-    ).run('admin', 'admin@oxygensports.com', hashedPassword, 'admin');
-    console.log('  ✅ Default admin user created (admin / admin123)');
-  }
+  const hashedAdminPassword = bcrypt.hashSync('admin123', 10);
+  const hashedEmployeePassword = bcrypt.hashSync('password', 10);
 
-  // ─── Seed 15 Realistic Contracts ───────────────────────────────────────
+  // Insert Admin
+  const adminId = _wrapper.prepare(`
+    INSERT INTO users (username, name, email, password, role, title, phone, avatar_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'admin', 
+    'Alex Rivers', 
+    'admin@oxygensports.com', 
+    hashedAdminPassword, 
+    'admin', 
+    'Lead Administrator', 
+    '+91 99999 99999', 
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&fit=crop&q=80'
+  ).lastInsertRowid;
 
-  const existingContracts = _wrapper.prepare('SELECT COUNT(*) as count FROM academy_annual_contract_renewal').get();
-  if (existingContracts.count === 0) {
-    const seedContracts = [
-      // EXPIRED contracts (renewal_date in the past)
-      {
-        academy_name: 'Mumbai Cricket Academy',
-        equipment_categories: 'Cricket',
-        contract_value: 850000,
-        price_revision: 5.5,
-        relationship_manager: 'Rajesh Sharma',
-        renewal_date: '2026-03-15',
-        contract_start_date: '2025-03-15',
-        status: 'Expired',
-        notes: 'Long-standing partner. Needs follow-up for renewal.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Bangalore Football Club Academy',
-        equipment_categories: 'Football',
-        contract_value: 620000,
-        price_revision: 3.0,
-        relationship_manager: 'Priya Nair',
-        renewal_date: '2026-05-01',
-        contract_start_date: '2025-05-01',
-        status: 'Expired',
-        notes: 'Contract lapsed. Awaiting management decision.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Hyderabad Badminton Center',
-        equipment_categories: 'Badminton',
-        contract_value: 430000,
-        price_revision: 2.5,
-        relationship_manager: 'Suresh Reddy',
-        renewal_date: '2026-04-10',
-        contract_start_date: '2025-04-10',
-        status: 'Expired',
-        notes: 'Shuttle and racket supply contract expired.',
-        created_by: 'admin'
-      },
-      // EXPIRING SOON contracts (within 30 days from today: ~2026-06-18)
-      {
-        academy_name: 'Chennai Athletics Training Institute',
-        equipment_categories: 'Athletics',
-        contract_value: 540000,
-        price_revision: 4.0,
-        relationship_manager: 'Anand Kumar',
-        renewal_date: '2026-06-28',
-        contract_start_date: '2025-06-28',
-        status: 'Expiring Soon',
-        notes: 'Track and field equipment. Urgent renewal needed.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Delhi Tennis Academy',
-        equipment_categories: 'Tennis',
-        contract_value: 780000,
-        price_revision: 6.0,
-        relationship_manager: 'Neha Gupta',
-        renewal_date: '2026-07-05',
-        contract_start_date: '2025-07-05',
-        status: 'Expiring Soon',
-        notes: 'Premium rackets and ball machine contract.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Pune Swimming Academy',
-        equipment_categories: 'Swimming',
-        contract_value: 350000,
-        price_revision: 2.0,
-        relationship_manager: 'Vikram Joshi',
-        renewal_date: '2026-07-10',
-        contract_start_date: '2025-07-10',
-        status: 'Expiring Soon',
-        notes: 'Pool equipment and swimwear supply.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Kolkata Hockey Academy',
-        equipment_categories: 'Hockey',
-        contract_value: 490000,
-        price_revision: 3.5,
-        relationship_manager: 'Amit Das',
-        renewal_date: '2026-07-15',
-        contract_start_date: '2025-07-15',
-        status: 'Expiring Soon',
-        notes: 'Hockey sticks and protective gear. Renewal discussion ongoing.',
-        created_by: 'admin'
-      },
-      // ACTIVE contracts (renewal_date > 90 days from today)
-      {
-        academy_name: 'Jaipur Cricket & Sports Club',
-        equipment_categories: 'Cricket, Football',
-        contract_value: 1200000,
-        price_revision: 7.0,
-        relationship_manager: 'Rajesh Sharma',
-        renewal_date: '2027-01-15',
-        contract_start_date: '2026-01-15',
-        status: 'Active',
-        notes: 'Multi-sport equipment contract. High value client.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Ahmedabad Table Tennis Center',
-        equipment_categories: 'Table Tennis',
-        contract_value: 280000,
-        price_revision: 1.5,
-        relationship_manager: 'Priya Nair',
-        renewal_date: '2027-03-20',
-        contract_start_date: '2026-03-20',
-        status: 'Active',
-        notes: 'Tables, nets, and paddle supply agreement.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Lucknow Boxing Academy',
-        equipment_categories: 'Boxing',
-        contract_value: 390000,
-        price_revision: 4.5,
-        relationship_manager: 'Suresh Reddy',
-        renewal_date: '2027-02-10',
-        contract_start_date: '2026-02-10',
-        status: 'Active',
-        notes: 'Gloves, bags, and ring equipment.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Chandigarh Basketball Academy',
-        equipment_categories: 'Basketball',
-        contract_value: 560000,
-        price_revision: 3.0,
-        relationship_manager: 'Anand Kumar',
-        renewal_date: '2026-12-01',
-        contract_start_date: '2025-12-01',
-        status: 'Active',
-        notes: 'Basketballs, hoops, and court accessories.',
-        created_by: 'admin'
-      },
-      {
-        academy_name: 'Goa Volleyball & Beach Sports',
-        equipment_categories: 'Volleyball, Athletics',
-        contract_value: 420000,
-        price_revision: 2.5,
-        relationship_manager: 'Neha Gupta',
-        renewal_date: '2027-04-25',
-        contract_start_date: '2026-04-25',
-        status: 'Active',
-        notes: 'Beach sports and volleyball equipment.',
-        created_by: 'admin'
-      },
-      // RENEWED contract
-      {
-        academy_name: 'Indore Gymnastics Academy',
-        equipment_categories: 'Gymnastics',
-        contract_value: 670000,
-        price_revision: 5.0,
-        relationship_manager: 'Vikram Joshi',
-        renewal_date: '2027-06-18',
-        contract_start_date: '2026-06-18',
-        status: 'Renewed',
-        notes: 'Successfully renewed for another year. Mats and apparatus.',
-        created_by: 'admin'
-      },
-      // CANCELLED contract
-      {
-        academy_name: 'Bhopal Archery Range',
-        equipment_categories: 'Archery',
-        contract_value: 310000,
-        price_revision: 0,
-        relationship_manager: 'Amit Das',
-        renewal_date: '2026-08-30',
-        contract_start_date: '2025-08-30',
-        status: 'Cancelled',
-        notes: 'Academy closed operations. Contract cancelled.',
-        created_by: 'admin'
-      },
-      // Another ACTIVE with far future date
-      {
-        academy_name: 'Nagpur Multi-Sport Complex',
-        equipment_categories: 'Cricket, Football, Badminton, Athletics',
-        contract_value: 1850000,
-        price_revision: 8.0,
-        relationship_manager: 'Rajesh Sharma',
-        renewal_date: '2027-05-30',
-        contract_start_date: '2026-05-30',
-        status: 'Active',
-        notes: 'Largest multi-sport contract. Flagship account.',
-        created_by: 'admin'
-      }
-    ];
+  // Insert Sarah
+  const sarahId = _wrapper.prepare(`
+    INSERT INTO users (username, name, email, password, role, title, phone, avatar_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'sarah.jenkins', 
+    'Sarah Jenkins', 
+    'sarah.jenkins@oxygensports.com', 
+    hashedEmployeePassword, 
+    'employee', 
+    'Relationship Manager', 
+    '+91 88888 88888', 
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&fit=crop&q=80'
+  ).lastInsertRowid;
 
-    const insertSql = `
-      INSERT INTO academy_annual_contract_renewal 
-        (academy_name, equipment_categories, contract_value, price_revision, relationship_manager, renewal_date, contract_start_date, status, notes, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const auditSql = `INSERT INTO audit_logs (contract_renewal_id, action, changed_by) VALUES (?, 'CREATE', 'admin')`;
+  // Insert Marcus
+  const marcusId = _wrapper.prepare(`
+    INSERT INTO users (username, name, email, password, role, title, phone, avatar_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'marcus.thorne', 
+    'Marcus Thorne', 
+    'marcus.thorne@oxygensports.com', 
+    hashedEmployeePassword, 
+    'employee', 
+    'Relationship Manager', 
+    '+91 77777 77777', 
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&fit=crop&q=80'
+  ).lastInsertRowid;
 
-    const seedAll = _wrapper.transaction(() => {
-      for (const c of seedContracts) {
-        const result = _wrapper.prepare(insertSql).run(
-          c.academy_name, c.equipment_categories, c.contract_value, c.price_revision,
-          c.relationship_manager, c.renewal_date, c.contract_start_date, c.status,
-          c.notes, c.created_by
-        );
-        _wrapper.prepare(auditSql).run(result.lastInsertRowid);
-      }
-    });
+  console.log('  ✅ Seed users created (Admin + 2 Employees with hashed passwords)');
 
-    seedAll();
-    console.log('  ✅ 15 seed contracts inserted with audit logs');
-  }
+  // ─── Seed 15 Contracts (Distributed) ───────────────────────────────────
 
-  console.log('  ✅ Database initialized successfully');
+  const seedContracts = [
+    {
+      academy_name: 'Pinnacle Athletics',
+      equipment_categories: 'Cricket, Football',
+      contract_value: 750000,
+      price_revision: 5.5,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-09-01',
+      contract_start_date: '2025-09-01',
+      status: 'Active',
+      notes: 'Main athletics and training wear contract.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Nexus Sports Academy',
+      equipment_categories: 'Badminton, Tennis',
+      contract_value: 920000,
+      price_revision: 6.0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-07-15',
+      contract_start_date: '2025-07-15',
+      status: 'Expiring Soon',
+      notes: 'Premium rackets and tennis court nets supply.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Elite Athletes Club',
+      equipment_categories: 'Football, Sportswear',
+      contract_value: 1200000,
+      price_revision: 7.5,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-07-02',
+      contract_start_date: '2025-07-02',
+      status: 'Expiring Soon',
+      notes: 'High-value customer. Custom sportswear orders.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Star Cricket Academy',
+      equipment_categories: 'Cricket',
+      contract_value: 1500000,
+      price_revision: 4.0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-05-10',
+      contract_start_date: '2025-05-10',
+      status: 'Expired',
+      notes: 'Requires urgent follow-up for cricket bats and leather balls.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Apex Junior Cricket Academy',
+      equipment_categories: 'Cricket',
+      contract_value: 680000,
+      price_revision: 3.5,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-04-20',
+      contract_start_date: '2025-04-20',
+      status: 'Expired',
+      notes: 'Junior safety kits and protective guards.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Global Sports Textile Co.',
+      equipment_categories: 'Sportswear',
+      contract_value: 450000,
+      price_revision: 2.0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-10-01',
+      contract_start_date: '2025-10-01',
+      status: 'Active',
+      notes: 'Apparel fabric and tracksuits.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Universal Fitness Equipment',
+      equipment_categories: 'Fitness',
+      contract_value: 850000,
+      price_revision: 5.0,
+      relationship_manager_id: sarahId,
+      renewal_date: '2027-06-01',
+      contract_start_date: '2026-06-01',
+      status: 'Renewed',
+      notes: 'Strength equipment and treadmills. Successfully renewed.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Elite Performance Apparel Ltd.',
+      equipment_categories: 'Sportswear',
+      contract_value: 1100000,
+      price_revision: 0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-08-15',
+      contract_start_date: '2025-08-15',
+      status: 'Cancelled',
+      notes: 'Contract terminated by mutually agreed terms.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Mumbai Cricket Academy',
+      equipment_categories: 'Cricket',
+      contract_value: 850000,
+      price_revision: 5.5,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-11-15',
+      contract_start_date: '2025-11-15',
+      status: 'Active',
+      notes: 'Standard bats, balls, and protective gear supply.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Bangalore Football Club Academy',
+      equipment_categories: 'Football',
+      contract_value: 620000,
+      price_revision: 3.0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-12-01',
+      contract_start_date: '2025-12-01',
+      status: 'Active',
+      notes: 'Biannual delivery of soccer balls and training cones.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Hyderabad Badminton Center',
+      equipment_categories: 'Badminton',
+      contract_value: 430000,
+      price_revision: 2.5,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-10-10',
+      contract_start_date: '2025-10-10',
+      status: 'Active',
+      notes: 'Nylon and feather shuttles contract.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Chennai Athletics Training Institute',
+      equipment_categories: 'Athletics',
+      contract_value: 540000,
+      price_revision: 4.0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-09-28',
+      contract_start_date: '2025-09-28',
+      status: 'Active',
+      notes: 'Training hurdles, stopwatches and relays.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Delhi Tennis Academy',
+      equipment_categories: 'Tennis',
+      contract_value: 780000,
+      price_revision: 6.0,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-10-05',
+      contract_start_date: '2025-10-05',
+      status: 'Active',
+      notes: 'Championship tennis balls and practice machines.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Pune Swimming Academy',
+      equipment_categories: 'Swimming',
+      contract_value: 350000,
+      price_revision: 2.0,
+      relationship_manager_id: marcusId,
+      renewal_date: '2026-09-10',
+      contract_start_date: '2025-09-10',
+      status: 'Active',
+      notes: 'Swimming goggles, caps, and kickboards.',
+      created_by: 'admin'
+    },
+    {
+      academy_name: 'Kolkata Hockey Academy',
+      equipment_categories: 'Hockey',
+      contract_value: 490000,
+      price_revision: 3.5,
+      relationship_manager_id: sarahId,
+      renewal_date: '2026-08-15',
+      contract_start_date: '2025-08-15',
+      status: 'Active',
+      notes: 'Composite hockey sticks and goalkeeper suits.',
+      created_by: 'admin'
+    }
+  ];
+
+  const insertSql = `
+    INSERT INTO academy_annual_contract_renewal 
+      (academy_name, equipment_categories, contract_value, price_revision, relationship_manager_id, renewal_date, contract_start_date, status, notes, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const auditSql = `INSERT INTO audit_logs (contract_renewal_id, action, changed_by) VALUES (?, 'CREATE', 'admin')`;
+
+  const seedAll = _wrapper.transaction(() => {
+    for (const c of seedContracts) {
+      const result = _wrapper.prepare(insertSql).run(
+        c.academy_name, c.equipment_categories, c.contract_value, c.price_revision,
+        c.relationship_manager_id, c.renewal_date, c.contract_start_date, c.status,
+        c.notes, c.created_by
+      );
+      _wrapper.prepare(auditSql).run(result.lastInsertRowid);
+    }
+  });
+
+  seedAll();
+  console.log('  ✅ 15 seed contracts inserted under respective employees with audit logs');
+  console.log('  ✅ Database schema successfully migrated and initialized');
   return _wrapper;
 }
-
-// ─── Getter (used by routes after init) ──────────────────────────────────
 
 function getDb() {
   if (!_wrapper) throw new Error('Database not initialized. Call initDatabase() first.');

@@ -7,18 +7,27 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  X
+  X,
+  Users
 } from 'lucide-react'
-
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/contracts/new', label: 'New Contract Entry', icon: PlusSquare },
-  { path: '/reports', label: 'Analytics', icon: BarChart3 },
-  { path: '/settings', label: 'Settings', icon: Settings },
-]
 
 function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth()
+
+  const navItems = user?.role === 'admin' 
+    ? [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/contracts/new', label: 'New Contract Entry', icon: PlusSquare },
+        { path: '/reports', label: 'Analytics', icon: BarChart3 },
+        { path: '/team', label: 'Team', icon: Users },
+        { path: '/settings', label: 'Settings', icon: Settings },
+      ]
+    : [
+        { path: '/my-contracts', label: 'My Contracts', icon: LayoutDashboard },
+        { path: '/contracts/new', label: 'New Contract Entry', icon: PlusSquare },
+        { path: '/reports', label: 'My Analytics', icon: BarChart3 },
+        { path: '/settings', label: 'Settings', icon: Settings },
+      ]
 
   return (
     <>
@@ -104,11 +113,19 @@ function Sidebar({ isOpen, onClose }) {
             <div className="border-t border-outline/10 pt-4 bg-[#111315]/50 -mx-4 px-4 pb-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 truncate">
-                  <div className="w-7 h-7 rounded-sm bg-primary/20 flex items-center justify-center text-xs font-bold text-primary font-mono border border-primary/30 shrink-0 uppercase">
-                    {user?.username ? user.username[0] : 'A'}
-                  </div>
+                  {user?.avatarUrl ? (
+                    <img 
+                      src={user.avatarUrl} 
+                      alt={user.name || user.username} 
+                      className="w-8 h-8 rounded-full border border-outline/20 object-cover shrink-0" 
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-sm bg-primary/20 flex items-center justify-center text-xs font-bold text-primary font-mono border border-primary/30 shrink-0 uppercase">
+                      {user?.name ? user.name[0] : (user?.username ? user.username[0] : 'A')}
+                    </div>
+                  )}
                   <div className="truncate">
-                    <p className="text-xs font-bold text-white truncate font-sans">{user?.username || 'Staff'}</p>
+                    <p className="text-xs font-bold text-white truncate font-sans">{user?.name || user?.username || 'Staff'}</p>
                     <p className="text-[10px] text-outline truncate font-mono uppercase tracking-wider">{user?.role || 'User'}</p>
                   </div>
                 </div>

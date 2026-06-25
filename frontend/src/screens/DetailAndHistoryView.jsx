@@ -100,8 +100,14 @@ function DetailAndHistoryView() {
   const daysLeft = getDaysLeft()
   const daysConfig = getDaysLeftConfig(daysLeft)
 
-  // Find manager metadata
-  const manager = mockManagers.find(m => m.name === contract?.relationshipManager)
+  // Resolve manager metadata dynamically from the joined database record
+  const manager = {
+    name: contract?.relationshipManager || 'Unassigned',
+    email: contract?.relationshipManagerEmail || '',
+    phone: contract?.relationshipManagerPhone || '',
+    avatar: contract?.relationshipManagerAvatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&fit=crop&q=80',
+    title: contract?.relationshipManagerTitle || 'Relationship Manager'
+  }
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-US', {
