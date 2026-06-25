@@ -23,6 +23,7 @@ import {
   updateCategory, 
   deleteCategory 
 } from '../api/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Settings() {
   const { user, login } = useAuth()
