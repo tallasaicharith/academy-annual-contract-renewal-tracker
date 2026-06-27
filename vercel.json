@@ -1,5 +1,20 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://academy-annual-contract-renewal-tracker.onrender.com/api/:path*"
+    },
+    {
+      "source": "/logo.png",
+      "destination": "/logo.png"
+    },
+    {
+      "source": "/oxygen-logo.svg",
+      "destination": "/oxygen-logo.svg"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
