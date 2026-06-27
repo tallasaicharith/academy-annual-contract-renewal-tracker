@@ -13,7 +13,7 @@
       "destination": "/oxygen-logo.svg"
     },
     {
-      "source": "/:(.*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
