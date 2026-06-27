@@ -132,11 +132,69 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error.' });
 });
 
+// ─── Automated Scheduled Job for Alert Tracking ───────────────────────────
+function runScheduledAlertChecks() {
+  try {
+    const database = require('./database/init');
+    
+    // Fetch all contracts and their managers
+    const contracts = database.prepare(`
+      SELECT c.*, u.name AS manager_name, u.email AS manager_email, u.renewal_alert_threshold AS manager_threshold
+      FROM academy_annual_contract_renewal c
+      JOIN users u ON c.relationship_manager_id = u.id
+      WHERE c.status NOT IN ('Renewed', 'Cancelled')
+    `).all();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const auditInsert = database.prepare(`
+      INSERT INTO audit_logs (contract_renewal_id, action, description, changed_by)
+      VALUES (?, 'NOTIFICATION_SENT', ?, 'system')
+    `);
+
+    const checkLogExists = database.prepare(`
+      SELECT id FROM audit_logs 
+      WHERE contract_renewal_id = ? AND action = 'NOTIFICATION_SENT' AND created_at > date('now', '-30 days')
+    `);
+
+    const runChecks = database.transaction(() => {
+      for (const contract of contracts) {
+        const renewal = new Date(contract.renewal_date);
+        renewal.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((renewal.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Alert threshold: manager's override or system default
+        const alertThreshold = contract.manager_threshold || 30;
+
+        if (diffDays > 0 && diffDays <= alertThreshold) {
+          // If within threshold, check if alert was already sent in last 30 days
+          const alreadySent = checkLogExists.get(contract.id);
+          if (!alreadySent) {
+            const desc = `Automated renewal alert email notification sent to ${contract.manager_name} (${contract.manager_email})`;
+            auditInsert.run(contract.id, desc);
+            console.log(`[SCHEDULED JOB] Dispatched automated renewal alert for contract ID ${contract.id} (${contract.academy_name})`);
+          }
+        }
+      }
+    });
+
+    runChecks();
+  } catch (err) {
+    console.error('[SCHEDULED JOB ERROR]', err.message);
+  }
+}
+
 // ─── Start Server ───────────────────────────────────────────────────────────
 async function startServer() {
   try {
     console.log('Initializing database...');
     await db.initDatabase();
+    
+    // Run alert checks immediately on startup and then every 60 seconds
+    runScheduledAlertChecks();
+    setInterval(runScheduledAlertChecks, 60000);
+
     app.listen(PORT, () => {
       console.log('═══════════════════════════════════════════════════════════');
       console.log('  Academy Annual Contract Renewal Tracker API');

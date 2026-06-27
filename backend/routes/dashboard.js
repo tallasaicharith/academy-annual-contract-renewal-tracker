@@ -13,7 +13,7 @@ function autoUpdateStatuses() {
     'UPDATE academy_annual_contract_renewal SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
   );
   const auditStmt = db.prepare(
-    "INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, changed_by) VALUES (?, 'AUTO_STATUS_UPDATE', 'status', ?, ?, 'system')"
+    "INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, description, changed_by) VALUES (?, 'AUTO_STATUS_UPDATE', 'status', ?, ?, ?, 'system')"
   );
 
   const today = new Date();
@@ -32,7 +32,8 @@ function autoUpdateStatuses() {
 
       if (newStatus !== contract.status) {
         updateStmt.run(newStatus, contract.id);
-        auditStmt.run(contract.id, contract.status, newStatus);
+        const desc = `Contract status automatically shifted from ${contract.status} to ${newStatus}`;
+        auditStmt.run(contract.id, contract.status, newStatus, desc);
       }
     }
   });

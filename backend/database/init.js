@@ -209,6 +209,7 @@ async function initDatabase() {
       field_changed TEXT,
       old_value TEXT,
       new_value TEXT,
+      description TEXT,
       changed_by TEXT DEFAULT 'system',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (contract_renewal_id) REFERENCES academy_annual_contract_renewal(id) ON DELETE CASCADE
@@ -483,7 +484,7 @@ async function initDatabase() {
       (academy_name, equipment_categories, contract_value, price_revision, relationship_manager_id, renewal_date, contract_start_date, status, notes, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  const auditSql = `INSERT INTO audit_logs (contract_renewal_id, action, changed_by) VALUES (?, 'CREATE', 'admin')`;
+  const auditSql = `INSERT INTO audit_logs (contract_renewal_id, action, description, changed_by) VALUES (?, 'CREATE', ?, 'admin')`;
 
   const seedAll = _wrapper.transaction(() => {
     for (const c of seedContracts) {
@@ -492,7 +493,8 @@ async function initDatabase() {
         c.relationship_manager_id, c.renewal_date, c.contract_start_date, c.status,
         c.notes, c.created_by
       );
-      _wrapper.prepare(auditSql).run(result.lastInsertRowid);
+      const desc = `Contract registered for ${c.academy_name} with value ₹${c.contract_value.toLocaleString('en-IN')}`;
+      _wrapper.prepare(auditSql).run(result.lastInsertRowid, desc);
     }
   });
 

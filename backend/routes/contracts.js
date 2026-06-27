@@ -40,7 +40,7 @@ function autoUpdateStatuses() {
     'UPDATE academy_annual_contract_renewal SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
   );
   const auditStmt = db.prepare(
-    "INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, changed_by) VALUES (?, 'AUTO_STATUS_UPDATE', 'status', ?, ?, 'system')"
+    "INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, description, changed_by) VALUES (?, 'AUTO_STATUS_UPDATE', 'status', ?, ?, ?, 'system')"
   );
 
   const updateAll = db.transaction(() => {
@@ -48,7 +48,8 @@ function autoUpdateStatuses() {
       const newStatus = calculateStatus(contract.renewal_date, contract.status);
       if (newStatus !== contract.status) {
         updateStmt.run(newStatus, contract.id);
-        auditStmt.run(contract.id, contract.status, newStatus);
+        const desc = `Contract status automatically shifted from ${contract.status} to ${newStatus}`;
+        auditStmt.run(contract.id, contract.status, newStatus, desc);
       }
     }
   });
@@ -183,10 +184,11 @@ router.post('/', requireAuth, (req, res) => {
     );
 
     // Create audit log
+    const desc = `Contract registered for ${academy_name} with value ₹${contract_value.toLocaleString('en-IN')}`;
     db.prepare(`
-      INSERT INTO audit_logs (contract_renewal_id, action, changed_by)
-      VALUES (?, 'CREATE', ?)
-    `).run(result.lastInsertRowid, req.user.username);
+      INSERT INTO audit_logs (contract_renewal_id, action, description, changed_by)
+      VALUES (?, 'CREATE', ?, ?)
+    `).run(result.lastInsertRowid, desc, req.user.username);
 
     const newContract = db.prepare('SELECT * FROM academy_annual_contract_renewal WHERE id = ?').get(result.lastInsertRowid);
 
@@ -327,8 +329,8 @@ router.put('/:id', requireAuth, (req, res) => {
     ];
 
     const auditInsert = db.prepare(`
-      INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, changed_by)
-      VALUES (?, 'UPDATE', ?, ?, ?, ?)
+      INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, description, changed_by)
+      VALUES (?, 'UPDATE', ?, ?, ?, ?, ?)
     `);
 
     const performUpdate = db.transaction(() => {
@@ -336,7 +338,15 @@ router.put('/:id', requireAuth, (req, res) => {
         const oldVal = String(existing[field] ?? '');
         const newVal = String(updatedFields[field] ?? '');
         if (oldVal !== newVal) {
-          auditInsert.run(req.params.id, field, oldVal, newVal, req.user.username);
+          let fieldLabel = field.replace(/_/g, ' ');
+          let displayOld = oldVal;
+          let displayNew = newVal;
+          if (field === 'contract_value') {
+            displayOld = `₹${parseFloat(oldVal).toLocaleString('en-IN')}`;
+            displayNew = `₹${parseFloat(newVal).toLocaleString('en-IN')}`;
+          }
+          const desc = `Updated ${fieldLabel} from "${displayOld}" to "${displayNew}"`;
+          auditInsert.run(req.params.id, field, oldVal, newVal, desc, req.user.username);
         }
       }
 
@@ -402,10 +412,11 @@ router.patch('/:id/status', requireAuth, (req, res) => {
         'UPDATE academy_annual_contract_renewal SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
       ).run(status, req.params.id);
 
+      const desc = `Status manually changed from ${existing.status} to ${status}`;
       db.prepare(`
-        INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, changed_by)
-        VALUES (?, 'STATUS_CHANGE', 'status', ?, ?, ?)
-      `).run(req.params.id, existing.status, status, req.user.username);
+        INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, new_value, description, changed_by)
+        VALUES (?, 'STATUS_CHANGE', 'status', ?, ?, ?, ?)
+      `).run(req.params.id, existing.status, status, desc, req.user.username);
     });
 
     performStatusUpdate();
@@ -435,10 +446,11 @@ router.delete('/:id', requireAuth, (req, res) => {
     }
 
     const performDelete = db.transaction(() => {
+      const desc = `Contract for ${existing.academy_name} was deleted from the system`;
       db.prepare(`
-        INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, changed_by)
-        VALUES (?, 'DELETE', 'full_record', ?, ?)
-      `).run(req.params.id, JSON.stringify(existing), req.user.username);
+        INSERT INTO audit_logs (contract_renewal_id, action, field_changed, old_value, description, changed_by)
+        VALUES (?, 'DELETE', 'full_record', ?, ?, ?)
+      `).run(req.params.id, JSON.stringify(existing), desc, req.user.username);
 
       db.prepare('DELETE FROM academy_annual_contract_renewal WHERE id = ?').run(req.params.id);
     });
