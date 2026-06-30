@@ -48,8 +48,8 @@ function Sidebar({ isOpen, onClose }) {
         {/* Sidebar Header Brand Area */}
         <div className="py-6 px-6 border-b border-outline/10 flex flex-col justify-center relative">
           <div className="flex flex-col items-start">
-            <img src="/logo.png" alt="Oxygen Sports" className="h-16 w-auto" />
-            <span className="text-[9px] font-mono tracking-[0.2em] font-bold text-outline uppercase mt-1">
+            <img src="/logo.png" alt="Oxygen Sports" className="h-24 w-auto -ml-3" />
+            <span className="text-[9px] font-mono tracking-[0.2em] font-bold text-outline uppercase mt-1 pl-1">
               Contract Tracker
             </span>
           </div>
